@@ -20,7 +20,7 @@ Default value		: /
 The scope of value	: /
 First used			: /
 */
-var cProcess = require('./node_modules/CProcess');
+var cProcess = require('./node_modules/cProcess');
 
 /*
 Description			: use 'OSInfo'.
@@ -28,7 +28,7 @@ Default value		: /
 The scope of value	: /
 First used			: /
 */
-var osInfo = require('./node_modules/OSInfo');
+var osInfo = require('./node_modules/OsInfo');
 
 /*
 Description			: use 'fs'.
@@ -99,7 +99,7 @@ var intervalObj;
 /*******************************************
 * start Bake_Tobacco_Monitor
 ********************************************/
-cProcess.RunCProcess('Bake_Tobacco_Monitor', 1, -1, 0);
+cProcess.Run('Bake_Tobacco_Monitor', 1, -1, 0);
 
 /*******************************************
 * read version
