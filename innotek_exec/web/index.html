@@ -117,7 +117,7 @@ function ButtonEvt(btn)
 			document.getElementById("address").value = "";
 			
 			jsonStr = "{" +'"aisle":' + '"' + document.getElementById("aisle").value + '"' + "," + '"action":1' + "," + '"addresses":' + "[" + newSlaveAddrsArray + "]" + "}";
-			sendHttpReq("POST", "slaveAddrs", jsonStr);
+			sendHttpReq("POST", "slave_addrs", jsonStr);
 			
 			newSlaveAddrsArray.splice(0, newSlaveAddrsArray.length);
 			newSlaveAddrs = "";			
@@ -138,7 +138,7 @@ function ButtonEvt(btn)
 			'"midId":' + '"' + document.getElementById("midId").value + '"' + ',' +
 			'"midIdCh":' + '"' + document.getElementById("midId_ch").value + '"' 
 			+ "}";
-			sendHttpReq("POST", "midId", jsonStr);
+			sendHttpReq("POST", "mid_id", jsonStr);
 			document.getElementById("midId").value = "";
 			document.getElementById("midId_ch").value = "";
 		}	
@@ -197,7 +197,7 @@ function ButtonEvt(btn)
 				else
 				{
 					jsonStr = "{" +'"aisle":' + '"' + document.getElementById("aisle").value + '"' + "," + '"action":0' + "," + '"addresses":' + "[" + Number(tmp) + "]" + "}";
-					sendHttpReq("POST", "slaveAddrs", jsonStr);
+					sendHttpReq("POST", "slave_addrs", jsonStr);
 				}
 				
 				document.getElementById("address").value = "";
@@ -262,11 +262,11 @@ function initPage()
 	var version;
 	var tmpLog;
 	
-	midId = sendHttpReq("GET", "midId", null);
+	midId = sendHttpReq("GET", "mid_id", null);
 	document.getElementById("midId").value = midId.substring(0, 10);
 	document.getElementById("midId_ch").value = midId.substring(10, midId.length);
 	
-	curSlaveAddrs00 = sendHttpReq("GET", "curSlaveAddrs00", null);
+	curSlaveAddrs00 = sendHttpReq("GET", "cur_slave_addrs_00", null);
 	document.getElementById("displayCur").innerHTML = curSlaveAddrs00;
 	
 	curSlaveAddrsSum = curSlaveAddrs00.substring(curSlaveAddrs00.indexOf("：") + 1);
@@ -276,7 +276,7 @@ function initPage()
 	version = "版本： " + version.substring(0,1) + "." + version.substring(1,2) + "." + version.substring(2,3);	
 	document.getElementById("block_footer").innerHTML = version;
 	
-	tmpLog = sendHttpReq("GET", "tmpLog", null);
+	tmpLog = sendHttpReq("GET", "tmp_log", null);
 	document.getElementById("tmpLog").value = tmpLog;
 	
 	
@@ -286,7 +286,7 @@ function updateTmpLog()
 {
 	var tmpLog;
 	
-	tmpLog = sendHttpReq("GET", "tmpLog", null);
+	tmpLog = sendHttpReq("GET", "tmp_log", null);
 	document.getElementById("tmpLog").value = tmpLog;
 	
 	setTimeout("updateTmpLog()", 5000);	

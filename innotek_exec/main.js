@@ -352,7 +352,7 @@ function proGet(url, response)
 	{
 		sendHttpResponse_ICON(response);
 	}
-	else if ("/midId" === url)
+	else if ("/mid_id" === url)
 	{
 		var midId = "";
 		
@@ -375,7 +375,7 @@ function proGet(url, response)
 			});			
 		});		
 	}
-	else if ("/curSlaveAddrs00" === url)
+	else if ("/cur_slave_addrs_00" === url)
 	{
 		fs.readFile('./conf/slaves_addr/aisle_00', function(err, chunk){
 		
@@ -396,7 +396,7 @@ function proGet(url, response)
 			sendHttpResponse_TEXT(response, chunk, 200);
 		});			
 	}
-	else if ("/tmpLog" === url)
+	else if ("/tmp_log" === url)
 	{
 		fs.readFile('/tmp/tmp.log', function(err, chunk){
 			
@@ -414,7 +414,7 @@ function proGet(url, response)
 
 function proPost(url, body, response)
 {
-	if ("/slaveAddrs" === url)
+	if ("/slave_addrs" === url)
 	{	
 		var json = 
 		{
@@ -454,7 +454,7 @@ function proPost(url, body, response)
 			sendHttpResponse_TEXT(response, " ", 201);
 		} //-- if (0 < json1.addresses.length) --//
 	}
-	else if ("/midId" === url)
+	else if ("/mid_id" === url)
 	{		
 		var json;
 		
