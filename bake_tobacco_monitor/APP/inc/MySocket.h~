@@ -1,0 +1,38 @@
+#ifndef	_MY_CLIENT_SOCKET_H_
+#define _MY_CLIENT_SOCKET_H_
+
+//----------------------Define macro for xxx-------------------//
+
+#define HOSTENT			struct hostent
+#define SOCKADDR_IN		struct sockaddr_in
+#define IN_ADDR			struct in_addr
+#define SOCKADDR		struct sockaddr	
+
+#define CONNECTED_YES	0
+#define CONNECTED_NO	-1
+
+#define PORT	8124//4321
+
+//---------------------------end-------------------------------//
+
+
+//---------------------Define new type for xxx-----------------//
+//---------------------------end-------------------------------//
+
+
+//-----------------Declaration variable for xxx----------------//
+
+
+//---------------------------end-------------------------------//
+
+
+//-------------------Declaration funciton for xxx--------------//
+
+int MySocketInit(unsigned char *pHostAddr, unsigned short port);
+int ConnectServer();
+int RecDataFromServer(unsigned char *pBuff, unsigned int len);
+int SendDataToServer(unsigned char *pBuff, unsigned int len);
+
+//---------------------------end-------------------------------//
+
+#endif //-- end of  _MY_SOCKET_H_ --//

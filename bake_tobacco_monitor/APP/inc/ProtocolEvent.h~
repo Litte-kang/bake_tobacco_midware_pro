@@ -1,0 +1,173 @@
+#ifndef _PROTOCOL_EVENT_H_
+#define _PROTOCOL_EVENT_H_
+
+#include "MyPublicFunction.h"
+
+//------------------------------------------------------MACRO------------------------------------------------//
+
+#define	SLAVER_SIZE			10
+#define SLAVER_ADDR_LEN		2
+#define SLAVER_ADDR_CONF	"//home//myconf//slaver_addr_conf"
+#define STATE_INFO_BACKUP	"//home//myconf//state_info_backup"
+#define ALERT_INFO_BACKUP	"//home//myconf//alert_info_backup"
+
+/****************************************************************
+*					update protocol						        *
+*****************************************************************/
+#define	FW_UPDATE_FLAG0 'R'
+#define FW_UPDATE_FLAG1 'E'
+
+//--- data type ---//
+#define NOTICE_UPDATE_TYPE		1
+#define ACK_NOTICE_UPDATE_TYPE	2
+#define	FW_DATA_TYPE			3
+#define	ACK_FW_DATA_SUC_TYPE	4
+#define ACK_FW_DATA_FAILED_TYPE	5
+#define UPDATE_SUC_TYPE			6
+
+#define AVG_SECTION_FW_SIZE		10*1024	//-- 10K per --//
+
+#define FW_PATH	"//myfw//app.bin"
+
+/****************************************************************
+*				end update protocol						        *
+*****************************************************************/
+
+/****************************************************************
+*					communication protocol(slaver)		        *
+*****************************************************************/
+#define REQ_MSG_FLAG0	0x46	//-- F --//
+#define REQ_MSG_FLAG1	0x44	//-- D --//
+
+#define ACK_MSG_FLAG0	0x46	//-- F --//
+#define ACK_MSG_FLAG1	0x45	//-- E --//
+
+#define ALERT_DATA_TYPE     0
+#define ACK_ALERT_TYPE		3
+#define CANCEL_SILE_TYPE	4
+#define SILE_TYPE			5
+#define ACK_DATA_TYPE       1
+#define STATE_DATA_TYPE    	2
+
+//--- state data ---//
+#define WIND_DOOR_ON            0x01
+#define LOOP_WIND_MACHINE_ON    0x02
+#define HELP_WIND_MACHINE_ON    0x04
+
+//--- alert data ---//
+#define ALERT_NUM_001   0x01    //--- byte one start ---//
+#define ALERT_NUM_002   0x02
+#define ALERT_NUM_003   0x04
+#define ALERT_NUM_004   0x08
+#define ALERT_NUM_005   0x10
+#define ALERT_NUM_006   0x20
+#define ALERT_NUM_007   0x40
+#define ALERT_NUM_008   0x80    //--- byte one end ---//
+
+#define ALERT_NUM_009   0x01    //-- byte two start ---//
+#define ALERT_NUM_010   0x02
+#define ALERT_NUM_011   0x04
+#define ALERT_NUM_012   0x08
+#define ALERT_NUM_013   0x10
+#define ALERT_NUM_014   0x20
+#define ALERT_NUM_015   0x40    //--- 7th bit ---//
+
+#define FIRST_REC_COMMU_FLAG		0x80
+#define RECEIVED_COMMU__FLAG		0x01
+#define NO_COMMU_FLAG				0x00
+
+#define REQ_MSG_SIZE	7
+/****************************************************************
+*				end communication protocol(slaver)		        *
+*****************************************************************/
+
+/****************************************************************
+*					communication protocol(server)		        *
+*****************************************************************/
+
+#define UPLOAD_SER_SIZE		128
+
+/****************************************************************
+*				end communication protocol(server)		        *
+*****************************************************************/
+
+//-----------------------------------------------------MACRO END ---------------------------------------------//
+
+//-------------------------------------------NEW TYPE------------------------------------//
+
+typedef void (*PTypeEvent)(unsigned char*, unsigned int);
+
+typedef struct _FWInformation
+{
+	unsigned char 	m_SectionSum;
+	unsigned short m_LastSectionSize;
+	unsigned char 	m_Version;
+}FWInformation;
+
+typedef struct _CommuInformation
+{
+	unsigned char 	m_RecCommuDatFlag;	
+	AisleInfo		m_CommuAisle;
+}CommuInformation;
+
+typedef struct _FWUpdateInformation
+{
+	unsigned char 	m_FWCount;
+	unsigned int	m_IsProcUpdateAck;	//-- 0 - not process, 1 - process --//
+	AisleInfo		m_UpdateAisle;
+}FWUpdateInformation;
+
+//-----------------------------------------NEW TYPE END-----------------------------------//
+
+//---------------------------------------DECLARATION VARIAVLE--------------------------------------------//
+
+/*
+Description			: to store fw information
+Default value		: /.
+The scope of value	: /.
+First used			: /.
+*/
+extern FWInformation g_FWInfo;
+
+/*
+Description			: slaver address table(local 0 - high 8 bit,local 1 - low 8 bit)
+Default value		: follow
+The scope of value	: /.
+First used			: /.
+*/
+extern unsigned char g_SlaverAddrTable[SLAVER_SIZE][SLAVER_ADDR_LEN];
+
+/*
+Description			: recieve stdout char
+Default value		: 0
+The scope of value	: /
+First used			: /
+*/
+extern unsigned char g_CMD;
+
+//-------------------------------------DECLARATION VARIABLE END-------------------------------------------//
+
+//--------------------------------------------------DECLARATION FUNCTION----------------------------------------//
+
+extern void ProtocolEventInit();
+extern void ProcProtocolData(int fd, unsigned char *pData, unsigned int len);
+
+extern int IsFWUpdateSuccess(int aisle);
+extern void ClearFWCount(int aisle);
+extern void SetProcUpdateAck(int aisle, unsigned char n);
+extern void SetCurUpdateInfoSlaverTabPosition(int aisle, unsigned int position);
+extern unsigned int GetCurUpdateInfoSlaverTabPosition(int aisle);
+extern unsigned int GetUpdateInfoTabSlaverSum(int aisle);
+extern int SetSlaversState(int aisle,unsigned int n);
+
+extern void SetCurCommuInfoSlaverTabPosition(int aisle, unsigned int position);
+extern unsigned int GetCurCommuInfoSlaverTabPosition(int aisle);
+extern unsigned int GetCommuInfoTabSlaverSum(int aisle);
+extern int IsRecCommuDat(int aisle);
+extern void ClearRecCommuFlag(int aisle, unsigned char n);
+
+
+//-----------------------------------------------DECLARATION FUNCTION END--------------------------------------------//
+
+
+#endif //-- _PROTOCOL_EVENT_H_ --//

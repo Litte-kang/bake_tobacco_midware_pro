@@ -1,0 +1,50 @@
+#ifndef _MY_SERVER_SOCKET_H_
+#define _MY_SERVER_SOCKET_H_
+
+//----------------------Define macro for xxx-------------------//
+
+#define SOCKADDR_IN		struct sockaddr_in
+#define SOCKADDR		struct sockaddr
+
+#define MAX_QUE_CONN_SIZE	1
+
+#define INVAILD_SOCK_FD 	-1
+
+//---------------------------end-------------------------------//
+
+
+//---------------------Define new type for xxx-----------------//
+
+typedef struct _SNetParameter
+{
+	unsigned char m_IPAddr[16];
+	unsigned short m_Port;
+}SNetParameter;
+
+//---------------------------end-------------------------------//
+
+
+//-----------------Declaration variable for xxx----------------//
+
+/*
+Description			: client fd
+Default value		: /
+The scope of value	: /
+First used			: MyClientSocketInit();
+*/
+extern int g_ClientFD[MAX_QUE_CONN_SIZE];
+
+//---------------------------end-------------------------------//
+
+
+//-------------------Declaration funciton for xxx--------------//
+
+extern int MyServerSocketInit(SNetParameter param);
+extern int Listen();
+extern int RecDataFromClient(int fd, unsigned char *pBuff, unsigned int len);
+extern int SendDataToClient(int fd, unsigned char *pBuff, unsigned int len); 
+
+//---------------------------end-------------------------------//
+
+
+#endif //-- _MY_SERVER_SOCKET_H_ --//

@@ -1,0 +1,413 @@
+#include "MyClientSocket.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <errno.h>
+#include <string.h>
+#include <netdb.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <pthread.h>
+#include <signal.h>
+#include <fcntl.h>
+#include <sys/time.h>
+
+//----------------------Define macro for xxx-------------------//
+
+//---------------------------end-------------------------------//
+
+
+//--------------------Define variable for xxx------------------//
+
+
+/*
+Description			: /
+Default value		: /
+The scope of value	: /
+First used			: MySocketInit();
+*/
+static SOCKADDR_IN g_ServAddr = {0};
+
+/*
+Description			: socket fd
+Default value		: -1
+The scope of value	: /
+First used			: MyClientSocketInit();
+*/
+static int g_SocketFD = -1;
+
+/*
+Description			: save server address and port.
+Default value		: /
+The scope of value	: /
+First used			: MySocketInit();
+*/
+static CNetParameter g_NetParam = {0};
+
+/*
+Description			: all bit set 0x00 - INACTIVE_CLIENT
+					: set bit CONNECTED_YES - connected server.
+					: set bit CONNECTED_NO - disconnected server.
+					: set bit ACTIVATED_CLIENT - client was activated.
+					: set bit LOGOUT_CLIENT - logout client.
+Default value		: INACTIVE_CLIENT
+The scope of value	: /
+First used			: /
+*/
+static char g_ClientState = INACTIVE_CLIENT;
+
+//---------------------------end-------------------------------//
+
+
+//------------Declaration function for xxx--------------//
+
+static void* 	ConnectServerThrd(void *pArg);
+static void 	CacthSig(int SigNum);
+static void		MyDelay_ms(unsigned int xms);
+
+//---------------------------end-----------------------//
+
+
+/***********************************************************************
+**Function Name	: MyClientSocketInit
+**Description	: create socket.
+**Parameters	: param - in.
+**Return		: 0 - ok, other value - failed.
+***********************************************************************/
+int MyClientSocketInit(CNetParameter param)
+{	
+	//--- to avoid initializing again ---//	
+	if (INACTIVE_CLIENT != g_ClientState)
+	{
+		printf("%s:the current client has used!\n", __FUNCTION__);
+		return -4;
+	}
+	
+	memcpy(&g_NetParam, &param, sizeof(CNetParameter));	
+
+	g_SocketFD = socket(AF_INET, SOCK_STREAM, 0);
+	if (-1 == g_SocketFD)
+	{
+		printf("%s:create socket failed!\n",__FUNCTION__);
+		return -3;
+	}
+
+	g_ServAddr.sin_family = AF_INET;
+	g_ServAddr.sin_port = htons(param.m_Port);
+	g_ServAddr.sin_addr.s_addr = inet_addr(param.m_IPAddr);
+
+	bzero(&(g_ServAddr.sin_zero), 8);
+
+	return 0;
+}
+
+/***********************************************************************
+**Function Name	: MyDelay_ms
+**Description	: delay ? ms,but it is not exact.
+**Parameters	: xms - in.
+**Return		: none.
+***********************************************************************/
+static void MyDelay_ms(unsigned int xms)
+{
+	struct timeval delay;
+	
+	delay.tv_sec = 0;
+	delay.tv_usec = xms * 1000;
+	
+	select(0, NULL, NULL, NULL, &delay);
+}
+
+/***********************************************************************
+**Function Name	: CacthSig
+**Description	: this is callback,when a specified signal come, call it.
+**Parameters	: SigNum - signal type.
+**Return		: none.
+***********************************************************************/
+static void CacthSig(int SigNum)
+{
+	switch (SigNum)
+	{
+		case SIGPIPE:
+			printf("catch SIGPIPE!\n");
+			g_ClientState ^= CONNECTED_YES;
+			g_ClientState |= CONNECTED_NO;
+			break;
+		default:
+			break;
+	}
+}
+
+/***********************************************************************
+**Function Name	: ConnectServerThrd
+**Description	: if disconnect, do not until connect server.
+**Parameters	: none.
+**Return		: none.
+***********************************************************************/
+static void* ConnectServerThrd(void *pArg)
+{
+	unsigned int timeout = (unsigned int)pArg;
+	unsigned int time_counter = 0;
+	char tmp = 0;
+
+	printf("connect server thread!\n");
+	
+	g_ClientState |= ACTIVATED_CLIENT;
+
+	while (1)
+	{
+		tmp = connect(g_SocketFD, (SOCKADDR*)&g_ServAddr, sizeof(SOCKADDR));
+
+		sleep(1);
+
+		if (0 == tmp)
+		{
+			g_ClientState |= CONNECTED_YES;
+			time_counter = 0;
+			
+			printf("connect %s:%d sucessful!\n", g_NetParam.m_IPAddr,g_NetParam.m_Port);
+
+			while ((CONNECTED_YES & g_ClientState) && (LOGOUT_CLIENT != (LOGOUT_CLIENT & g_ClientState)))
+			{
+				MyDelay_ms(5);
+			}
+			
+			//--- create new socket to connect server again ---//
+			if ((CONNECTED_NO & g_ClientState) && (LOGOUT_CLIENT != (LOGOUT_CLIENT & g_ClientState)))
+			{
+				close(g_SocketFD);
+				g_ClientState = INACTIVE_CLIENT;
+				MyClientSocketInit(g_NetParam);
+				g_ClientState |= ACTIVATED_CLIENT;
+			}
+		
+		}
+		else
+		{
+			printf("connect %s failed!\n", g_NetParam.m_IPAddr);
+			
+			time_counter++;
+			
+			if (time_counter >= timeout && timeout != 0)
+			{
+				close(g_SocketFD);
+				g_SocketFD = INVALID_FD;
+				
+				g_ClientState = INACTIVE_CLIENT;
+				
+				printf("connect server timeout!\n");
+				break;
+			}
+		}
+		
+		if ((LOGOUT_CLIENT & g_ClientState))
+		{
+			g_ClientState = INACTIVE_CLIENT;
+			break;
+		}
+	}
+	
+	pthread_exit(NULL);	
+}
+
+/***********************************************************************
+**Function Name	: ConnectServer
+**Description	: connect server.
+**Parameters	: timeout - in(uints is second).
+**Return		: none.
+***********************************************************************/
+int ConnectServer(unsigned int timeout)
+{
+	pthread_t thread;
+	pthread_attr_t attr;
+	void *thrd_ret = NULL;
+	int res = 0;
+	struct sigaction action;
+	struct sigaction sa;
+	
+	//--- to avoid connecting again ---//
+	if (INACTIVE_CLIENT != g_ClientState)
+	{
+		printf("%s:client has used!\n", __FUNCTION__);
+		return -6;
+	}
+	
+	//--- register a signal to check whether disconnect ---//
+	sa.sa_handler = SIG_IGN;		//-- prevent termina process --//
+
+	action.sa_handler = CacthSig;
+
+	sigemptyset(&action.sa_mask);
+
+	action.sa_flags = 0;
+
+	sigaction(SIGPIPE, &sa, 0);
+	sigaction(SIGPIPE, &action, 0);
+
+	res = pthread_attr_init(&attr);
+	if (0 != res)
+	{
+		printf("%s:create thread attribute failed!\n",__FUNCTION__);
+		return -2;
+	}
+	
+	res = pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM);
+	if (0 != res)
+	{
+		printf("%s:bind attribute failed!\n", __FUNCTION__);
+	}
+	
+	res = pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+	if (0 != res)
+	{
+		printf("%s:setting attribute failed!\n",__FUNCTION__);
+		return -3;
+	}
+
+
+	res = pthread_create(&thread, &attr, ConnectServerThrd, (void*)timeout);
+	if (0 != res)
+	{
+		printf("%s:create connect server thread failed!\n",__FUNCTION__);
+		return -1;
+	}
+	
+	pthread_attr_destroy(&attr);	
+	
+	return 0;
+}
+
+/***********************************************************************
+**Function Name	: RecDataFromServer
+**Description	: recieve data from server.
+**Parameters	: pBuff - store data recieved.
+				: len - expectations.
+**Return		: none.
+***********************************************************************/
+int RecDataFromServer(unsigned char *pBuff, unsigned int len)
+{
+	int rec_len = 0;
+	int max_fd = 0;
+	fd_set inset;
+
+	if (CONNECTED_YES != (CONNECTED_YES & g_ClientState))	
+	{
+		printf("%s:disconnected server!\n",__FUNCTION__);
+		return -3;
+	}
+
+	if (NULL == pBuff)
+	{
+		printf("%s:memory error!\n",__FUNCTION__);
+		return -1;
+	}
+	
+	FD_ZERO(&inset);
+	FD_SET(g_SocketFD, &inset);	
+	max_fd = g_SocketFD + 1;
+	
+	//--- wait data from server ---//
+	select(max_fd,  &inset, NULL, NULL, NULL);	
+
+	if (!FD_ISSET(g_SocketFD, &inset))
+	{
+		printf("%s:socket error!\n",__FUNCTION__);
+		return -4;
+	}
+
+	FD_CLR(g_SocketFD, &inset);	
+	
+	rec_len = recv(g_SocketFD, pBuff, len, 0);	
+	if (-1 == rec_len)
+	{
+		printf("%s:recieve data from server failed!\n",__FUNCTION__);
+		return -2;
+	}
+	else if (0 == rec_len)
+	{
+		g_ClientState ^= CONNECTED_YES;
+		g_ClientState |= CONNECTED_NO; //-- note: 'select()' will not wait data from server when client disconnected --//
+	}	
+
+	return 0;
+	
+}
+
+/***********************************************************************
+**Function Name	: SendDataToServer
+**Description	: send data to server.
+**Parameters	: pBuff - store data recieved.
+				: len - expectations.
+**Return		: none.
+***********************************************************************/
+int SendDataToServer(unsigned char *pBuff, unsigned int len)
+{
+	int send_len = 0;	
+
+	if (CONNECTED_YES != (CONNECTED_YES & g_ClientState))	
+	{
+		printf("%s:disconnected server!\n",__FUNCTION__);
+		return -3;
+	}
+
+	if (NULL == pBuff)
+	{
+		printf("%s:memory error!\n",__FUNCTION__);
+		return -1;
+	}
+
+	send_len = send(g_SocketFD, pBuff, len, 0);
+	if (-1 == send_len)
+	{
+		printf("%s:send data to server failed!\n",__FUNCTION__);
+		return -2;
+	}
+
+	return 0;
+}
+
+/***********************************************************************
+**Function Name	: LogoutClient
+**Description	: logout client free source.
+**Parameters	: none.
+**Return		: none.
+***********************************************************************/
+void LogoutClient()
+{
+	sleep(1);
+	
+	if (INVALID_FD != g_SocketFD)
+	{
+		close(g_SocketFD);
+		g_SocketFD = INVALID_FD;
+	}
+	
+	if ((ACTIVATED_CLIENT & g_ClientState))
+	{			
+		g_ClientState |= LOGOUT_CLIENT;
+
+		while ((LOGOUT_CLIENT & g_ClientState))
+		{
+			MyDelay_ms(5);
+		}
+		
+		printf("logout client sucessful!\n");
+	}		
+}
+
+/***********************************************************************
+**Function Name	: IsConnectedServer
+**Description	: get current net state.
+**Parameters	: none.
+**Return		: 1 - connected server, 0 - not.
+***********************************************************************/
+extern int IsConnectedServer()
+{
+	return (g_ClientState & CONNECTED_YES) ? 1 : 0;
+}
+
+
+
+
+
+
+
+

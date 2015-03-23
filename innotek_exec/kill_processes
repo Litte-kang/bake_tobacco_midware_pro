@@ -1,0 +1,16 @@
+#!/bin/sh
+
+pid=`ps aux | grep node | grep -v grep | awk '{print $1}'`
+
+echo "kill node"
+kill -9 $pid
+
+pid=`ps aux | grep InnerCommunication | grep -v grep | awk '{print $1}'`
+
+echo "kill InnerCommunication"
+kill -9 $pid
+
+pid=`ps aux | grep Bake_Tobacco_Monitor | grep -v grep | awk '{print $1}'`
+
+echo "kill Bake_Tobacco_Monitor"
+kill -9 $pid

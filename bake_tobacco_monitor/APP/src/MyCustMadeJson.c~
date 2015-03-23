@@ -1,0 +1,225 @@
+#include "MyCustMadeJson.h"
+#include "MyPublicFunction.h"
+#include "stdio.h"
+#include "stdlib.h"
+#include "string.h"
+
+//----------------------Define macro for-------------------//
+
+#define COMMA	','
+
+//---------------------------end---------------------------//
+
+
+//--------------------Define variable for------------------//
+
+/*
+Description			:
+Default value		:
+The scope of value	:
+First used			:
+*/
+
+//---------------------------end--------------------------//
+
+
+//------------Declaration static function for--------------//
+//---------------------------end---------------------------//
+
+
+/***********************************************************************
+**Function Name	: CustomMadeJson
+**Description	: custom made a json follow:
+				: {"type":?,"address":"?","data":[?,?....]}
+**Parameters	: MyJson - the content of object.
+				: pJsonFormat - out.
+**Return		: the length of pJsonFormat.
+***********************************************************************/
+unsigned int CustomMadeJson(MyCustMadeJson MyJson, char *pJsonFormat)
+{
+	unsigned int tmp = 0;
+	unsigned int i = 0;
+	unsigned int n = 0;
+	unsigned int counter = 0;
+	unsigned char num_str[12] = {0};
+  	
+	if (NULL == MyJson.m_PData || NULL == pJsonFormat)
+	{
+		printf("data error!\n");
+		return counter;
+	}
+	
+	pJsonFormat[0] = '{';
+
+	//--- type ---//
+	memcpy(&pJsonFormat[1], CUST_MADE_TYPE, 7);
+	sprintf(num_str, "%d", MyJson.m_Type);
+	tmp = strlen(num_str);
+	memcpy(&pJsonFormat[8], num_str, tmp);						
+	pJsonFormat[8 + tmp] = COMMA;
+	counter = 9 + tmp;
+
+	//--- address ---//
+	memcpy(&pJsonFormat[counter], CUST_MADE_ADDR, 10);
+	sprintf(num_str, "\"%d\"", MyJson.m_Addr);
+	tmp = strlen(num_str);
+	memcpy(&pJsonFormat[10 + counter], num_str, tmp);
+	pJsonFormat[10 + counter + tmp] = COMMA;
+	counter = counter + tmp + 11;
+	
+	//--- data ---//
+	memcpy(&pJsonFormat[counter], CUST_MADE_DATA, 7);
+	pJsonFormat[7 + counter] = '[';	
+	i = counter + 7 + 1;
+	counter = counter + 10 + (MyJson.m_DataLen == 0 ? 0 : (MyJson.m_DataLen - 1));
+	tmp = 0;
+	
+	while (MyJson.m_DataLen)
+	{
+		tmp = (unsigned int)MyJson.m_PData[n];
+		sprintf(num_str, "%d", tmp);
+		tmp = strlen(num_str);
+		counter = counter + tmp;
+		memcpy(&pJsonFormat[i], num_str, tmp);
+		i = i + tmp;
+		pJsonFormat[i++] = COMMA;
+		n++;
+		MyJson.m_DataLen--;
+	}
+	
+	i = (n == 0 ? i : (i - 1));
+	pJsonFormat[i++] = ']';
+	pJsonFormat[i] = '}';
+	
+	return counter;	
+}
+
+/***********************************************************************
+**Function Name	: CustMadeJsonParse
+**Description	: parse custom made a json follow:
+				: {"type":?,"address":"?","data":[?,?....]}
+**Parameters	: pJsonFormat - in.
+**Return		: counter - the length of pJsonFormat.
+***********************************************************************/
+MyCustMadeJson CustMadeJsonParse(const char *pJsonFormat)
+{
+    MyCustMadeJson my_json = {0};
+    char *p_tmp = NULL;
+    char *p_tmp_tmp = NULL;
+    int n = 0;
+    int len0 = 0;
+    int len1 = 0;
+
+    if (NULL == pJsonFormat)
+    {
+        return my_json;
+    }
+		
+	len0 = strlen(pJsonFormat); //-- to avoid stucking unlimited loop --//
+	
+	//--- get type ---//
+    p_tmp = strstr(pJsonFormat, CUST_MADE_TYPE);
+    p_tmp = p_tmp + strlen(CUST_MADE_TYPE);
+    my_json.m_Type = 0;
+    len1 = len0;
+    
+    while (COMMA != *p_tmp && 0 != len1)
+    {
+        my_json.m_Type = my_json.m_Type * 10 + (*p_tmp - 48);
+        p_tmp++;
+        len1--;
+    }
+	
+	//--- get address ---//
+    p_tmp = p_tmp + strlen(CUST_MADE_ADDR) + 2;
+    my_json.m_Addr = 0;
+    len1 = len0;
+    
+    while (COMMA != *(p_tmp + 1) && 0 != len1)
+    {
+        my_json.m_Addr = my_json.m_Addr * 10 + (*p_tmp - 48);
+        p_tmp++;
+        len1--;
+    }
+	p_tmp++;
+	
+	//--- get length of data ---//
+    p_tmp = p_tmp + strlen(CUST_MADE_DATA) + 2;
+    p_tmp_tmp = p_tmp;
+    n = 0;
+    len1 = len0;
+    
+    while (NULL != p_tmp_tmp && 0 != len1)
+    {
+        p_tmp_tmp = strchr(p_tmp_tmp, COMMA);
+        if (NULL != p_tmp_tmp)
+        {
+            p_tmp_tmp++;
+            n++;
+        }
+        len1--;
+    }
+    n++;
+    my_json.m_DataLen = n;
+	
+	//--- get data ---//
+    my_json.m_PData = (unsigned char*)malloc(n);
+    memset(my_json.m_PData, 0, n);
+    n = 0;
+    len1 = len0;
+    
+    while ('}' != *p_tmp && 0 != len1)
+    {
+        while (COMMA != *p_tmp && ']' != *p_tmp && 0 != len1)
+        {
+            my_json.m_PData[n] = my_json.m_PData[n] * 10 + (*p_tmp - 48);
+            p_tmp++;
+            len1--;
+        }
+        p_tmp++;
+        n++;
+        len1--;
+    }
+    
+    //--- pares custmor made json error ---//
+    if (0 == len1)
+    {
+    	memset(&my_json, 0, sizeof(MyCustMadeJson));
+    	return my_json;
+    }
+
+    return my_json;
+}
+
+/***********************************************************************
+**Function Name	: FreeCustMadeJson
+**Description	: free memory.
+**Parameters	: pJson - in.
+**Return		: none.
+***********************************************************************/
+void FreeCustMadeJson(MyCustMadeJson *pJson)
+{
+	if (NULL == pJson)
+	{
+		printf("%s:free error!\n",__FUNCTION__);
+		return;
+	}
+	
+	pJson->m_Type = 0;
+	pJson->m_Addr = 0;
+	pJson->m_DataLen = 0;
+	
+	if (NULL != pJson->m_PData)
+	{
+		free(pJson->m_PData);
+		pJson->m_PData = NULL;
+	}
+}
+
+
+
+
+
+
+
+

@@ -1,0 +1,782 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+#include <fcntl.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <errno.h>
+#include <pthread.h>
+#include <signal.h>
+#include <ifaddrs.h>
+#include <netinet/in.h> 
+#include <string.h> 
+#include <arpa/inet.h>
+#include "uart_api.h"
+#include "ProtocolEvent.h"
+#include "MyPublicFunction.h"
+#include "MyClientSocket.h"
+#include "MyServerSocket.h"
+#include "MyCustMadeJson.h"
+
+
+//----------------------Define macro for xxx-------------------//
+
+#define IDLE_THRD_NUM 					0		
+#define REC_UART0_DATA_NUM				1
+#define REC_UART1_DATA_NUM 				2
+#define SEND_UART0_DATA_NUM		 		3
+#define SEND_UART1_DATA_NUM				4
+#define REC_SERVER_DATA_NUM				5
+
+#define THREAD_SIZE      				6
+
+//---------------------------end-------------------------------//
+
+//------------Declaration static function for xxx--------------//
+
+//--- thread function ---//
+
+static void* Thrds(void *pArg);
+static void* IdleThrd(void *pArg);
+
+//--- general function ---//
+
+static void AppInit();
+static void SendCommunicationRequest(int fd, unsigned char *pSlaverAddr, unsigned char type);
+static void SendFWUpdateNotice(int fd);
+static void SearchSlaverStateInfo(int fd);
+static void SearchSlaverAlertInfo(int fd);
+static void SendUartData(int fd);
+static void RecUartData(int fd);
+static void RecServData();
+static void UploadLocalID(int SigNum);
+
+//--------------------Define variable for xxx------------------//
+
+/*
+Description			: recieve stdout char.
+Default value		: 0
+The scope of value	: /
+First used			: /
+*/
+unsigned char g_CMD = 0;
+
+/*
+Description			: to start search state information, g_MIN = 6.
+Default value		: 0
+The scope of value	: /
+First used			: /
+*/
+unsigned char g_MIN = 0;
+
+/*
+Description			: connect server parameter.
+Default value		: /
+The scope of value	: /
+First used			: AppInit();
+*/
+static CNetParameter g_Param;
+
+/*
+Description			: server parameter.
+Default value		: /
+The scope of value	: /
+First used			: AppInit();
+*/
+static SNetParameter g_SParam;
+
+/*
+Description			: communicate with slaver g_IsCommu > 0, otherwise = 0, to be sure upload data to server.
+Default value		: 0
+The scope of value	: /
+First used			: /
+*/
+static int g_IsCommu = 0;
+
+/*
+Description			: local machine id
+Default value		: 123
+The scope of value	: /
+First used			: UplocalLocalID()
+*/
+static unsigned int g_MyLocalID = 123;
+
+//---------------------------end-------------------------------//
+
+
+//---------------------------end-------------------------------//
+
+void TestFunc()
+{
+
+}
+
+int main()
+{
+    printf("modi times------38\n");
+
+    AppInit();
+    
+    return 0;
+}
+
+/***********************************************************************
+**Function Name	: AppInit
+**Description	: initialze some variable and device
+**Parameter		: none.
+**Return		: none.
+***********************************************************************/
+static void AppInit()
+{
+    pthread_t thread[THREAD_SIZE];
+#if (COM_TYPE == GNR_COM)
+	int target_com[USER_COM_SIZE] = {TARGET_COM_PORT0, TARGET_COM_PORT1};
+#else
+	int target_com[USER_COM_SIZE] = {HOST_COM_PORT0}; 
+#endif
+
+	int thrd_num[THREAD_SIZE] = {REC_UART0_DATA_NUM, REC_UART1_DATA_NUM, SEND_UART0_DATA_NUM, SEND_UART1_DATA_NUM, REC_SERVER_DATA_NUM, IDLE_THRD_NUM};
+    int i = 0;
+    int res = 0;
+    void *thrd_ret;
+   
+	for (i = 0; i < USER_COM_SIZE; ++i)
+	{	
+		if((g_UartFDS[i] = open_port(target_com[i])) < 0)
+		{
+		   g_UartFDS[i] = -1;
+		}
+	
+
+		if( -1 != g_UartFDS[i]) 
+		{
+		    set_com_config(g_UartFDS[i], 9600, 8, 'N', 1);
+		}
+	}
+	
+	ProtocolEventInit();
+	
+	//--- get net parameter ---//
+	{
+		FILE *fp = NULL;
+		char ip_addr[16] = {0};
+		int ip = 0;
+
+		fp = fopen("netconf","r");
+		fread(ip_addr, 1, 15, fp);
+		fclose(fp);
+		
+		memcpy(g_Param.m_IPAddr, ip_addr, strlen(ip_addr));
+		g_Param.m_Port = 8124;
+		g_SParam.m_Port = 8124;
+
+		printf("server ip %s\n", g_Param.m_IPAddr);
+		
+		MyServerSocketInit(g_SParam);
+		Listen();
+		sleep(1);
+		/*
+		MyClientSocketInit(g_Param);
+		ConnectServer();
+
+		sleep(1);
+		*/
+	}
+	
+	//--- set alarm signal to send local id to server per 1 min ---//
+	{
+		struct sigaction sa;
+		struct sigaction sig;
+
+		sa.sa_handler = SIG_IGN;
+		sig.sa_handler = UploadLocalID;
+
+		sigemptyset(&sig.sa_mask);
+		sig.sa_flags = 0;
+
+		sigaction(SIGALRM, &sa, 0);
+		sigaction(SIGALRM, &sig, 0);
+
+		alarm(60);
+	}	
+
+	for (i = 0; i < (THREAD_SIZE - 1); ++i)
+	{
+		res = pthread_create(&thread[i], NULL, Thrds, (void*)thrd_num[i]);
+		if (0 != res)
+		{
+			printf("%s:create rec data thread failed!\n",__FUNCTION__);
+			exit(1);
+		}
+	}
+
+    res = pthread_create(&thread[i], NULL, IdleThrd, (void*)thrd_num[i]);
+
+    if (0 != res)
+    {
+		printf("%s:create idle thread failed!\n",__FUNCTION__);
+        exit(1);
+    }
+
+    for (i = 0; i < THREAD_SIZE; i++)
+    {
+        res = pthread_join(thread[i], &thrd_ret);
+    }
+
+}
+
+/***********************************************************************
+**Function Name	: SendCommunicationRequest
+**Description	: send request message to slaver.
+**Parameter		: fd - in.
+				: pSlaverAddr - slaver address.
+				: type - request type.
+**Return		: -1 - failed, other value - success
+***********************************************************************/
+static void SendCommunicationRequest(int fd, unsigned char *pSlaverAddr, unsigned char type)
+{
+	unsigned char req_data[5 + SLAVER_ADDR_LEN] = {0};
+	int res = 0;
+
+	if (NULL == pSlaverAddr)
+	{
+		printf("%s:slaver address error!\n",__FUNCTION__);
+		return;
+	}  
+	
+	req_data[0] = REQ_MSG_FLAG0;
+	req_data[1] = REQ_MSG_FLAG1;
+	
+	memcpy(&req_data[2], pSlaverAddr, SLAVER_ADDR_LEN);
+
+    req_data[2 + SLAVER_ADDR_LEN] = type;
+    
+    req_data[3 + SLAVER_ADDR_LEN] = REQ_MSG_FLAG1;
+    req_data[4 + SLAVER_ADDR_LEN] = REQ_MSG_FLAG0;
+	
+	//--- call uart send api ---//
+    res = write(fd, req_data, 7);
+	if (7 != res)
+	{
+		printf("%s:send %d request failed!\n",__FUNCTION__, type);
+	}
+
+}
+
+/***********************************************************************
+**Function Name	: SearchSlaverStateInfo
+**Description	: search slaver`s state information.
+**Parameter		: fd - in.
+**Return		: none.
+***********************************************************************/
+static void SearchSlaverStateInfo(int fd)
+{
+	unsigned int res = 0;
+	unsigned int slaver_sum = 0;
+	unsigned int req_count = 0;
+	
+	//--- get slaver sum and start position on aisle ---//		
+	slaver_sum = GetCommuInfoTabSlaverSum(fd);
+	req_count = GetCurCommuInfoSlaverTabPosition(fd);
+	slaver_sum = slaver_sum + req_count;
+
+	while (req_count < slaver_sum)
+	{
+		L_DEBUG("send state req to 0x%.2x%.2x\n",g_SlaverAddrTable[req_count][0], g_SlaverAddrTable[req_count][1]);
+		SendCommunicationRequest(fd, g_SlaverAddrTable[req_count], STATE_DATA_TYPE);
+		req_count++;
+		sleep(1);
+	}
+	
+	L_DEBUG("finish searching state by %d aisle!\n",fd);
+}
+
+/***********************************************************************
+**Function Name	: SearchSlaverAlertInfo
+**Description	: search slaver`s alert information.
+**Parameter		: fd - in.
+**Return		: none.
+***********************************************************************/
+static void SearchSlaverAlertInfo(int fd)
+{
+	unsigned int res = 0;
+	unsigned int slaver_sum = 0;
+	unsigned int req_count = 0;
+	unsigned int start_position = 0;
+	TIME start;
+
+	//--- get slaver sum and start position on aisle ---//
+	slaver_sum = GetCommuInfoTabSlaverSum(fd);
+	start_position = GetCurCommuInfoSlaverTabPosition(fd);
+	slaver_sum = slaver_sum + start_position;
+	req_count = start_position;
+
+	while (req_count < slaver_sum)
+	{				
+		L_DEBUG("send alert req to 0x%.2x%.2x by %d aisle\n",g_SlaverAddrTable[req_count][0], g_SlaverAddrTable[req_count][1],fd);
+		
+		GET_SYS_CURRENT_TIME(start);
+		SendCommunicationRequest(fd, g_SlaverAddrTable[req_count], ALERT_DATA_TYPE);
+		
+		while (0 == IsRecCommuDat(fd))
+		{
+			res = IS_TIMEOUT(start, (60 * 1000));	//-- we will search next slaver, if not receive ack in 1min --//
+			if (0 != res)
+			{
+				printf("%s:alert search timeout!\n",__FUNCTION__);
+				break;
+			}
+		}
+		
+		ClearRecCommuFlag(fd, 0);
+		req_count++;
+		SetCurCommuInfoSlaverTabPosition(fd, req_count);
+		sleep(1);
+	}
+
+	SetCurCommuInfoSlaverTabPosition(fd, start_position);
+	ClearRecCommuFlag(fd, 2);
+	
+	L_DEBUG("finish searching alert by %d aisle!\n",fd);
+}
+
+/***********************************************************************
+**Function Name	: SendUartData
+**Description	: send uart data.
+**Parameter		: fd - in.
+**Return		: none.
+***********************************************************************/
+static void SendUartData(int fd)
+{
+	int res = 0;
+	TIME start;
+	
+	while (1)
+	{		
+		switch (g_CMD)
+		{
+			case 'F':	//-- send fw update notice --//	
+				{	
+					static int aisle_counter = 0;
+					
+					if (0 == aisle_counter)
+					{
+						SetSlaversState(fd, SILE_TYPE);	//-- send a silence ack to slaver --//	
+						L_DEBUG("%s:SLITE_TYPE\n",__FUNCTION__);						
+					}
+					aisle_counter++;
+					
+					sleep(2);
+					SendFWUpdateNotice(fd);
+				
+					aisle_counter = aisle_counter > 0 ? (aisle_counter - 1) : 0;
+					if (0 == aisle_counter)
+					{
+						SetSlaversState(fd, CANCEL_SILE_TYPE); //-- send a ack to cancel --//
+						L_DEBUG("%s:CANCEL_SILE_TYPE\n",__FUNCTION__);
+					}
+					
+					g_CMD = 0;
+				}
+				break;
+			case 'S':	//-- send state information request --//
+				{	
+					//--- connect server ---//					
+					if (0 == g_IsCommu) 				//-- avoid starting more --//
+					{
+						alarm(1);						//-- start connect --//
+						SetSlaversState(fd, SILE_TYPE);	//-- send a silence ack to slaver --//
+					}
+					g_IsCommu++;
+					
+					GET_SYS_CURRENT_TIME(start);	//-- get a start time --//
+					
+					while(0 == IsConnectedServer())
+					{
+						res = IS_TIMEOUT(start, (15 * 1000));	//-- we will not wait, if not connect server in 15s --//
+						if (0 != res)
+						{
+							printf("%s:connected timeout!\n",__FUNCTION__);
+							break;
+						}
+					}
+					sleep(2);
+					
+					//--- search state information ---//
+					SearchSlaverStateInfo(fd);						
+
+					//--- disconnect with server ---//	
+					g_IsCommu = g_IsCommu > 0 ? (g_IsCommu - 1) : 0;
+					
+					if (0 == g_IsCommu)
+					{
+						SetSlaversState(fd, CANCEL_SILE_TYPE); //-- send a ack to cancel --//
+						LogoutClient();
+					}
+					
+					g_CMD = 0;
+				}
+				break;
+			case 'A':	//-- send alert information request --//
+				{	
+					//--- connect server ---//					
+					if (0 == g_IsCommu) 				//-- avoid starting more --//
+					{
+						alarm(1);						//-- start connect --//
+						SetSlaversState(fd, SILE_TYPE);	//-- send a silence ack to slaver --//						
+					}
+					g_IsCommu++;
+					
+					GET_SYS_CURRENT_TIME(start);	//-- get a start time --//
+					
+					while(0 == IsConnectedServer())
+					{
+						res = IS_TIMEOUT(start, (15 * 1000));	//-- we will not wait, if not connect server in 15s --//
+						if (0 != res)
+						{
+							printf("%s:connected timeout!\n",__FUNCTION__);
+							break;
+						}
+					}
+					sleep(2);
+	
+					//--- search alert information ---//
+					SearchSlaverAlertInfo(fd);
+
+					//--- disconnect with server ---//	
+					g_IsCommu = g_IsCommu > 0 ? (g_IsCommu - 1) : 0;
+					
+					if (0 == g_IsCommu)
+					{
+						SetSlaversState(fd, CANCEL_SILE_TYPE); //-- send a ack to cancel --//
+						LogoutClient();
+					}
+					
+					g_CMD = 0;
+				}
+				break;
+			default:
+				break;
+
+		}
+
+		sleep(1);
+	}
+}
+
+/***********************************************************************
+**Function Name	: RecUartData
+**Description	: received uart data.
+**Parameter		: fd - in.
+**Return		: none.
+***********************************************************************/
+static void RecUartData(int fd)
+{
+    unsigned char buff[BUFFER_SIZE];
+    int max_fd = 0;
+    int res = 0;
+    int real_read = 0;
+    int i = 0;
+    struct timeval tv;
+    fd_set inset;
+    fd_set tmp_inset;
+    
+    FD_ZERO(&inset); 
+	FD_SET(fd, &inset);
+    
+	max_fd = fd;
+    
+	tv.tv_sec = TIME_DELAY;
+	tv.tv_usec = 0;   
+	
+    while (1)
+    {
+    	while ((FD_ISSET(fd, &inset)))
+    	{   
+    		tmp_inset = inset;
+    		res = select(max_fd + 1, &tmp_inset, NULL, NULL, NULL);
+
+    		switch(res)
+    		{
+    			case -1:
+    			{
+    				perror("select");
+    			}
+    			break;
+    			
+    			case 0: 
+    			{
+    				perror("select time out");
+    			}
+    			break;
+    			
+    			default:
+    			{
+					printf("----------------------------------%d\n",fd);
+					if (FD_ISSET(fd, &tmp_inset))
+					{
+						memset(buff, 0, BUFFER_SIZE);
+						real_read = read(fd, buff, BUFFER_SIZE);
+						///*
+						{
+						    int j = 0;
+						    
+						    for (; j < real_read; ++j)
+						    {
+						        printf("0x%x,",buff[j]);
+						    }
+						    printf("\n");
+						}
+					    //*/    
+                        if (0 < real_read)
+                        {
+                            ProcProtocolData(fd, buff, real_read);
+                        }//-- end of if (0 < real_read) --//
+					}
+    			} 
+    		}
+    	} 
+    }
+
+}
+
+/***********************************************************************
+**Function Name	: SendFWUpdateNotice
+**Description	: send a fw update notic to slaver.
+**Parameter		: fd - in.
+**Return		: none.
+***********************************************************************/
+static void SendFWUpdateNotice(int fd)
+{
+	unsigned int update_count = 0;
+	unsigned int slaver_sum = 0;
+	unsigned int start_position = 0;
+	unsigned char notice[9 + SLAVER_ADDR_LEN] = {0};
+	int res = 0;
+	TIME start;
+	
+	//--- get slaver sum and start position on aisle ---//
+	slaver_sum = GetUpdateInfoTabSlaverSum(fd);
+	start_position = GetCurUpdateInfoSlaverTabPosition(fd);
+	slaver_sum = slaver_sum + start_position;
+	update_count = start_position;
+	
+	//--- fill notice content ---//
+	notice[0] = FW_UPDATE_FLAG0;
+	notice[1] = FW_UPDATE_FLAG1;
+	notice[2] = NOTICE_UPDATE_TYPE;
+	notice[3 + SLAVER_ADDR_LEN] = g_FWInfo.m_SectionSum;
+	notice[4 + SLAVER_ADDR_LEN] = (unsigned char)(g_FWInfo.m_LastSectionSize >> 8);
+	notice[5 + SLAVER_ADDR_LEN] = (unsigned char)g_FWInfo.m_LastSectionSize;
+	notice[6 + SLAVER_ADDR_LEN] = g_FWInfo.m_Version;
+	notice[7 + SLAVER_ADDR_LEN] = FW_UPDATE_FLAG1;
+	notice[8 + SLAVER_ADDR_LEN] = FW_UPDATE_FLAG0;
+	
+	while(update_count < slaver_sum)	
+	{
+		memcpy(&notice[3], g_SlaverAddrTable[update_count], SLAVER_ADDR_LEN);	//-- fill slaver address --//
+		
+		SetProcUpdateAck(fd, 1);		//-- allow process update ack data from slaver --//
+
+		write(fd, notice, 11);			//-- send notice updated --//
+		
+		GET_SYS_CURRENT_TIME(start);	//-- get a start time --//
+
+		SetCurUpdateInfoSlaverTabPosition(fd, update_count);	//-- set the current slaver address table position --//
+		
+		L_DEBUG("%d send update notice to 0x%.2x%.2x update_count %d\n", fd, notice[3], notice[4], update_count+1);	
+
+		while (IsFWUpdateSuccess(fd))		
+		{
+			res = IS_TIMEOUT(start, (10 * 60 * 1000));	//-- we will update next slaver, if not receive ack in 10min --//
+			if (0 != res)
+			{
+				printf("%s:update timeout!\n",__FUNCTION__);
+				break;
+			}
+		}
+		
+		sleep(10);
+		ClearFWCount(fd);
+		SetProcUpdateAck(fd, 0);
+		update_count++;
+		
+	}
+	
+	SetCurUpdateInfoSlaverTabPosition(fd, start_position);	//-- reset --//
+
+	L_DEBUG("all slaver update ok!,fd = %d\n",fd);
+
+}
+
+/***********************************************************************
+**Function Name	: RecServData
+**Description	: receive server data.
+**Parameter		: none.
+**Return		: none.
+***********************************************************************/
+static void RecServData()
+{
+	char str[100] = {0};
+	int res = 0;
+	MyCustMadeJson json = {0};
+
+	while (1)
+	{
+#if 0
+		L_DEBUG("receive data from Client!\n");
+		memset(str, 0 ,100);
+		res = RecDataFromClient(g_ClientFD[0], str, 100);
+		
+		if (0 == res)
+		{	
+			json = CustMadeJsonParse(str);
+			L_DEBUG("type = %d\naddress = %d\ndata = 0x%.2x\n",json.m_Type, json.m_Addr, json.m_PData[0]);
+			FreeCustMadeJson(&json);
+			
+		}
+		L_DEBUG("send data to Client!\n");
+		SendDataToClient(g_ClientFD[0], "hehe", 4);
+#endif			
+		sleep(1);		
+	}
+}
+
+/***********************************************************************
+**Function Name	: Thrds
+**Description	: this is thread.
+**Parameter		: pArg - unkown.
+**Return		: none.
+***********************************************************************/
+static void* Thrds(void *pArg)
+{
+   	int thrd_num = (int)pArg;
+
+	L_DEBUG("Thrds %d\n", thrd_num);	
+	
+	switch (thrd_num)
+	{
+		case REC_UART0_DATA_NUM:
+			RecUartData(g_UartFDS[0]);
+			break;
+		case REC_UART1_DATA_NUM:
+			RecUartData(g_UartFDS[1]);
+			break;
+		case SEND_UART0_DATA_NUM:
+			SendUartData(g_UartFDS[0]);
+			break;
+		case SEND_UART1_DATA_NUM:
+			SendUartData(g_UartFDS[1]);
+			break;
+		case REC_SERVER_DATA_NUM:
+			RecServData();
+			break;
+		default:
+			break;
+	}
+
+    pthread_exit(NULL);
+}
+
+/***********************************************************************
+**Function Name	: IdleThrd
+**Description	: this is a idle thread.
+**Parameter		: pArg - unkown.
+**Return		: none.
+***********************************************************************/
+static void* IdleThrd(void *pArg)
+{
+	int thrd_num = (int)pArg;
+
+    //--- do here ---//
+	L_DEBUG("idle thread %d\n", thrd_num);
+	
+	while (1)
+	{
+		g_CMD = getchar();
+		L_DEBUG("the current cmd is %c\n",g_CMD);
+		sleep(1);
+
+	}
+
+    pthread_exit(NULL);
+}
+
+/***********************************************************************
+**Function Name	: UploadLocalID
+**Description	: upload local id to server.
+**Parameter		: SigNum - unkown.
+**Return		: none.
+***********************************************************************/
+static void UploadLocalID(int SigNum)
+{
+	char addr_buffer[UPLOAD_SER_SIZE] = {0};
+	unsigned int len = 0;
+	unsigned char data = 0;
+	static unsigned int min = 0;
+	MyCustMadeJson json = {0};
+
+	if (SIGALRM == SigNum)
+	{
+		if (0 == IsConnectedServer())
+		{
+			MyClientSocketInit(g_Param);
+			ConnectServer();
+		}
+			
+		if (0 == g_IsCommu)
+		{
+			while (0 == IsConnectedServer());
+
+			L_DEBUG("local ID is %d\n", g_MyLocalID);
+			
+			json.m_Type = 3;
+			json.m_Addr = g_MyLocalID;
+			json.m_DataLen = 1;
+			json.m_PData = &data;
+
+			len = CustomMadeJson(json, addr_buffer);	
+			SendDataToServer(addr_buffer, len);	
+			sleep(1);
+			LogoutClient();			
+		}
+	}
+	
+	min++;
+	
+	if (6 == min)
+	{
+		g_CMD = 'S';	//-- start searching state information --//
+	}
+	else if (6 < min)
+	{
+		min = 0;	//-- reset --//
+	}
+	
+	alarm(60);	
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

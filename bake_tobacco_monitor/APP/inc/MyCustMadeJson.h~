@@ -1,0 +1,39 @@
+#ifndef _MY_CUST_MADE_JSON_H_
+#define _MY_CUST_MADE_JSON_H_
+
+//----------------------Define macro for-------------------//
+
+#define CUST_MADE_TYPE	"\"type\":"
+#define CUST_MADE_ADDR	"\"address\":"
+#define	CUST_MADE_DATA	"\"data\":"
+
+//---------------------------end---------------------------//
+
+
+//---------------------Define new type for-----------------//
+
+typedef struct _MyCustMadeJson
+{
+    unsigned int	m_Type;
+    unsigned int	m_Addr;
+    unsigned char	*m_PData;
+    unsigned int	m_DataLen;
+}MyCustMadeJson;
+
+//---------------------------end---------------------------//
+
+
+//-----------------Declaration variable for----------------//
+
+//---------------------------end---------------------------//
+
+
+//-------------------Declaration funciton for--------------//
+
+extern unsigned int CustomMadeJson(MyCustMadeJson MyJson, char *pJsonFormat);
+extern MyCustMadeJson CustMadeJsonParse(const char *pJsonFormat);
+extern void FreeCustMadeJson(MyCustMadeJson *pJson);
+
+//---------------------------end---------------------------//
+
+#endif //-- end of _MY_CUST_MADE_JSON_H_ --// 

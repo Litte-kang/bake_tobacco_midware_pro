@@ -1,0 +1,51 @@
+#!/bin/bash
+
+ARG1=$1
+
+while true
+do
+
+if [ '' == "$ARG1" ]
+then
+	echo "param can not empty"
+	break
+fi
+
+if [ 'make' == "$ARG1" ]
+then
+	echo "build c pro"
+	cd bake_tobacco_monitor/MakeFile
+	make
+	sleep 1
+	cd ../OUT
+	echo "cp Bake_tobacco_Monitor ../../innotek_exec/c_processes/Bake_Tobacco_Monitor"
+	cp Bake_Tobacco_Monitor ../../innotek_exec/c_processes/Bake_Tobacco_Monitor/
+	break
+fi
+	
+if [ 'clean' == "$ARG1" ]
+then
+	echo "clean c target"
+	cd bake_tobacco_monitor/MakeFile/ 
+	make clean
+	cd ../../
+	echo "rm -f ./innotek_exec/c_processes/Bake_Tobacco_Monitor/Bake_Tobacco_Monitor"
+	rm -f ./innotek_exec/c_processes/Bake_Tobacco_Monitor/Bake_Tobacco_Monitor
+	break
+fi
+
+if [ 'run' == "$ARG1" ]
+then 
+	echo "run pro"
+	cd ./innotek_exec/c_processes/Bake_Tobacco_Monitor
+	./Bake_Tobacco_Monitor &
+	sleep 2
+	cd ../../
+	node main &
+	break
+else
+	echo "invaild param"
+	break
+fi
+
+done

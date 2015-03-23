@@ -1,0 +1,962 @@
+#include "ProtocolEvent.h"
+#include "uart_api.h"
+#include <unistd.h>
+#include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <errno.h>
+#include "MyClientSocket.h"
+#include "MyCustMadeJson.h"
+
+//----------------------------------------DECLARATION FUNCIONT---------------------------------//
+
+static int CheckCommuData(unsigned char *pData, unsigned char type);
+
+static void AlertTypeEvent(unsigned char*pData, unsigned int len);
+static void AckTypeEvent(unsigned char*pData, unsigned int len);
+static void StateTypeEvent(unsigned char*pData, unsigned int len);
+static void UploadDataToServer(unsigned char *pData, unsigned int len);
+static int WR(const char *pFileName, unsigned char *pData, unsigned int len);
+
+static void ProcCommunicationProtocolData(int fd, unsigned char *pData, unsigned int len, unsigned char *pFlags, int InfoType);
+static void ProcUpdateProtocolData(FWUpdateInformation *pInfo, unsigned char *pData, unsigned int len, unsigned char *pFlags);
+
+static int SendFWToSlaver(FWUpdateInformation *pInfo);
+static int GetUpdateInfoTabPosition(int aisle);
+
+static int GetCommuInfoTabPosition(int aisle);
+
+//------------------------------------DECLARATION FUNCIONT END-------------------------------//
+
+//--------------------------------------DECLARATION VARIABLE--------------------------------//
+
+
+/*
+Description			: to store fw information
+Default value		: /.
+The scope of value	: /.
+First used			: ProtocolEventInit()
+*/
+FWInformation g_FWInfo;
+
+/*
+Description			: slaver address table(local 0 - high 8 bit,local 1 - low 8 bit)
+Default value		: follow
+The scope of value	: /.
+First used			: /.
+*/
+unsigned char g_SlaverAddrTable[SLAVER_SIZE][SLAVER_ADDR_LEN];
+
+/*
+Description			: record update information,
+Default value		: /.
+The scope of value	: /.
+First used			: ProtocolEventInit()
+*/
+static FWUpdateInformation g_UpdateInfo[USER_COM_SIZE];
+
+/*
+Description			: record communication information,
+Default value		: /.
+The scope of value	: /.
+First used			: ProtocolEventInit()
+*/
+static CommuInformation g_CommuInfo[USER_COM_SIZE];
+
+//----------------------------------DECLARATION VARIABLE END --------------------------------//
+
+/***********************************************************************
+**Function Name	: ProtocolEventInit
+**Description	: initialize some variable.
+**Parameter		: none.
+**Return		: none.
+***********************************************************************/
+void ProtocolEventInit()
+{
+	unsigned int slaver_sum = 0;
+	unsigned int slaver_addr = 0;
+	int i = 0;
+	FILE *fp = NULL;
+
+	g_FWInfo.m_SectionSum = 9;	//-- 8+1 --//
+	g_FWInfo.m_LastSectionSize = 4276;
+	g_FWInfo.m_Version = 1; 
+	
+	//--- get slaver address information ---//
+	fp = fopen(SLAVER_ADDR_CONF, "r");
+	if (NULL == fp)
+	{
+		printf("%s:get slaver address failed!\n", __FUNCTION__);
+		exit(1);
+	}
+	
+	fscanf(fp, "%d", &slaver_sum);
+	L_DEBUG("slaver_sum = %d\n", slaver_sum);
+	
+	for (i = 0; i < slaver_sum; ++i)
+	{
+		fscanf(fp, "%d\n", &slaver_addr);
+		
+		g_SlaverAddrTable[i][0] = slaver_addr >> 8;
+		g_SlaverAddrTable[i][1] = slaver_addr;
+		
+		L_DEBUG("0x%.2x%.2x\n",g_SlaverAddrTable[i][0], g_SlaverAddrTable[i][1]);	
+	}
+
+	fclose(fp);
+	
+	for (i = 0; i < USER_COM_SIZE; ++i)
+	{
+		g_UpdateInfo[i].m_FWCount = 0;	
+		g_UpdateInfo[i].m_IsProcUpdateAck = 0;
+		g_UpdateInfo[i].m_UpdateAisle.m_Aisle = g_UartFDS[i];
+		
+		g_CommuInfo[i].m_RecCommuDatFlag = FIRST_REC_COMMU_FLAG;
+		g_CommuInfo[i].m_CommuAisle.m_Aisle = g_UartFDS[i];
+
+	}  
+
+	g_UpdateInfo[0].m_UpdateAisle.m_CurSlaverTabPosition = 0;
+	g_UpdateInfo[0].m_UpdateAisle.m_SlaverSum = 0;	
+	
+	g_CommuInfo[0].m_CommuAisle.m_CurSlaverTabPosition = 0;
+	g_CommuInfo[0].m_CommuAisle.m_SlaverSum = 0;
+	
+	g_UpdateInfo[1].m_UpdateAisle.m_CurSlaverTabPosition = 0;
+	g_UpdateInfo[1].m_UpdateAisle.m_SlaverSum = slaver_sum;	
+	
+	g_CommuInfo[1].m_CommuAisle.m_CurSlaverTabPosition = 0;
+	g_CommuInfo[1].m_CommuAisle.m_SlaverSum = slaver_sum;	
+}
+
+/***********************************************************************
+**Function Name	: GetCommuInfoTabPosition
+**Description	: get position by aisle in g_CommuInfo.
+**Parameter		: pData - in.
+**Return		: -1 - not exist aisle in g_CommuInfo, i - position.
+***********************************************************************/
+static int GetCommuInfoTabPosition(int aisle)
+{
+	int i = 0;
+
+	for (i = 0; i < USER_COM_SIZE; ++i)
+	{
+		if (g_CommuInfo[i].m_CommuAisle.m_Aisle == aisle)
+		{
+			return i;
+		}
+	}
+
+	return -1;
+}
+
+/***********************************************************************
+**Function Name	: GetUpdateInfoTabPosition
+**Description	: get position by aisle in g_UpdateInfo.
+**Parameter		: pData - in.
+**Return		: -1 - not exist aisle in g_UpdateInfo, i - position.
+***********************************************************************/
+static int GetUpdateInfoTabPosition(int aisle)
+{
+	int i = 0;
+
+	for (i = 0; i < USER_COM_SIZE; ++i)
+	{
+		if (g_UpdateInfo[i].m_UpdateAisle.m_Aisle == aisle)
+		{
+			return i;
+		}
+	}
+
+	return -1;
+}
+
+/***********************************************************************
+**Function Name	: CheckCommuData
+**Description	: detecting whether the data is correctly.
+**Parameter		: pData - in.
+				: type - check type.
+**Return		: 0 > - error, other - the length of vaild data.
+***********************************************************************/
+static int CheckCommuData(unsigned char *pData, unsigned char type)
+{
+    int crc_code = 0;
+    int len = 0;
+    
+    if (NULL == pData)
+    {
+        return -1;
+    }
+	
+	//--- first,check data type ---//
+	if (type != pData[4])
+	{
+		return -5;
+	}    
+
+    //--- the length of vaild data ---//
+    len = (int)(pData[7] << 8);
+    len |= (int)pData[8];
+    
+    //--- check end flag ---//
+    if (ACK_MSG_FLAG0 != pData[6] || ACK_MSG_FLAG1 != pData[5])
+    {
+        return -2;
+    }
+
+    if (ACK_MSG_FLAG0 != pData[12 + len] || ACK_MSG_FLAG1 != pData[11 + len])
+    {
+        return -3;
+    }
+
+    //--- crc check code ---//
+    crc_code = (int)(pData[9 + len] << 8);
+    crc_code |= (int)pData[10 + len];
+
+    if (crc_code != (0x0000ffff & CreateCRC16CheckCode_1(&pData[9], len)))
+    {
+        return -4;
+    }
+	
+	return len;
+}
+
+/***********************************************************************
+**Function Name	: WR
+**Description	: write data to file, if disconnect with server.
+				: read data from file,if connect with server.
+**Parameter		: pFileName - file name.
+				: pData - data.
+				: len - the length of data.
+**Return		: 0 - read ok, 1 - write ok, -1 - both failed.
+***********************************************************************/
+static int WR(const char *pFileName, unsigned char *pData, unsigned int len)
+{
+    int res = 0;
+    char dat[UPLOAD_SER_SIZE] = {0};
+    FILE *fp = NULL;
+	
+	if (0 == IsConnectedServer()) //-- disconnected with server, we save data to pFileName --//
+	{
+		fp = fopen(pFileName, "ab");
+		
+		if (NULL == fp)
+		{
+			printf("%s:open %s failed!\n", __FUNCTION__);
+			return -1;
+		}
+		
+		fwrite(pData, 1, len, fp);
+		
+		fclose(fp);
+		
+		return 1;
+	}
+		
+	//--- get data from pFileName and upload ---//
+	fp = fopen(pFileName, "rb");
+	if (NULL != fp)
+	{
+		do
+		{	
+			res = fread(dat, 1, len, fp);	
+			if (0 == res)
+			{
+				break;
+			}
+			
+			UploadDataToServer(data, res);
+						
+		}while(!feof(fp));
+		
+		fclose(fp);
+		remove(pFileName);	//-- remove pFileName --//
+	}
+	
+	return 0;
+}
+
+/***********************************************************************
+**Function Name	: AlertTypeEvent
+**Description	: process alert event.
+**Parameter		: pData - alert data.
+				: len - the length of valid data.
+**Return		: none.
+***********************************************************************/
+static void AlertTypeEvent(unsigned char*pData, unsigned int len)
+{
+	int res = 0;
+	
+	L_DEBUG("Alert data upload:\n");
+	
+	res = WR(ALERT_INFO_BACKUP, pData, (len+13));
+	if (1 == res || -1 == res)
+	{
+		return;
+	}
+	
+	UploadDataToServer(pData, len);	
+}
+
+/***********************************************************************
+**Function Name	: AckTypeEvent
+**Description	: process ack event.
+**Parameter		: pData - alert data.
+				: len - the length of valid data.
+**Return		: none.
+***********************************************************************/
+static void AckTypeEvent(unsigned char*pData, unsigned int len)
+{
+#if 0
+    int i = 0;
+    
+    printf("Ack data:");
+    
+    while (len--)
+    {
+        printf("%x,",pData[i++]);
+    }
+    
+    printf("\n");
+#endif
+}
+
+/***********************************************************************
+**Function Name	: StateTypeEvent
+**Description	: process state event.
+**Parameter		: pData - alert data.
+				: len - the length of valid data.
+**Return		: none.
+***********************************************************************/
+static void StateTypeEvent(unsigned char*pData, unsigned int len)    
+{
+    int res = 0;
+    
+    L_DEBUG("State data:0x%x%x\n",pData[2],pData[1]);
+    
+	res = WR(STATE_INFO_BACKUP, pData, (len+13));
+	if (1 == res || -1 == res)
+	{
+		return;
+	}
+	
+	UploadDataToServer(pData, len);
+}
+
+/***********************************************************************
+**Function Name	: UploadDataToServer
+**Description	: upload data to server.
+**Parameter		: pData - data.
+				: len - the length of data.
+**Return		: none.
+***********************************************************************/
+static void UploadDataToServer(unsigned char *pData, unsigned int len)
+{
+	MyCustMadeJson json = {0};
+	unsigned int counter = 0;
+	unsigned char upload_buff[UPLOAD_SER_SIZE] = {0};
+
+	json.m_Type = (unsigned int)pData[4];
+
+	json.m_Addr = pData[2] << 8;
+	json.m_Addr |= pData[3];
+
+	json.m_DataLen = (int)(pData[7] << 8);
+	json.m_DataLen |= (int)pData[8];
+	
+	json.m_PData = &pData[9];
+
+  	//--- get json format ---//
+	counter = CustomMadeJson(json, upload_buff);
+
+	//--- send to server ---//
+	SendDataToServer(upload_buff, counter);
+}
+
+/***********************************************************************
+**Function Name	: ProcCommunicationProtocolData
+**Description	: process communication protocol data.
+**Parameter		: fd - in.
+				: pData - protocol data.
+				: len - the length of data.
+				: pFlags - protocol flags.
+				: InfoType - protocol type.
+**Return		: none.
+***********************************************************************/
+static void ProcCommunicationProtocolData(int fd, unsigned char *pData, unsigned int len, unsigned char *pFlags, int InfoType)
+{
+	unsigned char *p = NULL;
+	int res = 0;
+	int type = 0;
+
+	if (NULL == pData)
+    {
+        return;
+    }
+
+	p = pData;	
+
+	while (NULL != p)
+	{
+        p = MyStrStr(p, len, pFlags, 2, &len);
+         
+		res = CheckCommuData(p, InfoType);
+
+        L_DEBUG("communication res = %d\n",res);
+
+        if (0 <= res)
+        {
+            type = (int)p[4];
+            L_DEBUG("Communication type = %d \n",type);
+			switch (type)
+			{
+				case ALERT_DATA_TYPE:
+					{
+						unsigned char alert_ack[5 + SLAVER_ADDR_LEN] = {0};
+						int slaver_position = 0;
+
+						AlertTypeEvent(p, res);
+
+						alert_ack[0] = REQ_MSG_FLAG0;
+						alert_ack[1] = REQ_MSG_FLAG1;
+						
+						memcpy(&alert_ack[2], &p[2], SLAVER_ADDR_LEN);
+
+						alert_ack[2 + SLAVER_ADDR_LEN] = ACK_ALERT_TYPE;
+						alert_ack[3 + SLAVER_ADDR_LEN] = REQ_MSG_FLAG1;
+						alert_ack[4 + SLAVER_ADDR_LEN] = REQ_MSG_FLAG0;
+						
+						//--- send alert ack ---//
+						res = write(fd, alert_ack, 7);
+						if (7 != res)
+						{
+							printf("send alert ack failed!\n");
+							break;
+						}
+
+						res = GetCommuInfoTabPosition(fd);
+
+						if ((FIRST_REC_COMMU_FLAG & g_CommuInfo[res].m_RecCommuDatFlag))				 
+						{
+							L_DEBUG("slaver make a alert!\n");
+							
+							//--- send a silence ack to slaver ---//
+							SetSlaversState(fd, SILE_TYPE);
+
+							g_CommuInfo[res].m_RecCommuDatFlag = NO_COMMU_FLAG;
+							g_CMD = 'A';	//--- start host send alert request --// 
+							p = NULL;
+						}
+						else 
+						{
+							slaver_position = GetCurCommuInfoSlaverTabPosition(fd);
+							if (0 == strncmp(g_SlaverAddrTable[slaver_position] ,&alert_ack[2], SLAVER_ADDR_LEN))
+							{
+								L_DEBUG("slaver(0x%.2x%.2x) alert info from %d aisle!\n",alert_ack[2],alert_ack[3],fd);
+								g_CommuInfo[res].m_RecCommuDatFlag |= RECEIVED_COMMU__FLAG;
+								p = NULL;
+							}
+						}
+											
+					}
+					break;
+				case ACK_DATA_TYPE:
+					break;
+				case STATE_DATA_TYPE:
+					StateTypeEvent(p, res);
+					break;
+				default:
+					break;   
+			}
+        }
+         
+        if (NULL != p)
+        {
+            p++;
+        }		
+	}
+}
+
+/***********************************************************************
+**Function Name	: ProcUpdateProtocolData
+**Description	: process fw update protocol data.
+**Parameter		: pInfo - fw update information.
+				: pData - protocol data.
+				: len - the length of data.
+				: pFlags - protocol flags.
+**Return		: none.
+***********************************************************************/
+static void ProcUpdateProtocolData(FWUpdateInformation *pInfo, unsigned char *pData, unsigned int len, unsigned char *pFlags)
+{
+	unsigned char *p = NULL;
+	int res = 0;
+	int type = 0;
+
+	if (NULL == pData)
+	{
+		return;
+	}
+
+	p = pData;
+
+	while (NULL != p)
+	{
+		p = MyStrStr(p, len, pFlags, 2, &len);
+			
+		if (NULL != p)
+		{
+			L_DEBUG("update type = 0x%x\n", p[2]);
+			
+			if (FW_UPDATE_FLAG1 == p[5] && FW_UPDATE_FLAG0 == p[6] 
+				&& (0 == strncmp(g_SlaverAddrTable[pInfo->m_UpdateAisle.m_CurSlaverTabPosition] ,&p[3], SLAVER_ADDR_LEN)))
+			{
+				type = (int)p[2];
+				
+				res = 1; //-- correct type --//
+
+				switch (type)
+				{
+					case ACK_NOTICE_UPDATE_TYPE:
+						pInfo->m_FWCount = 0;
+						SendFWToSlaver(pInfo);
+						L_DEBUG("--------------------------sent %dth section\n",pInfo->m_FWCount+1);
+						break;
+					case ACK_FW_DATA_SUC_TYPE:
+						pInfo->m_FWCount++;					
+						SendFWToSlaver(pInfo);
+						L_DEBUG("--------------------------sent %dth section\n",pInfo->m_FWCount+1);
+						break;
+					case ACK_FW_DATA_FAILED_TYPE:
+						L_DEBUG("-------------------------sent %dth failed ,send againt\n",pInfo->m_FWCount+1);
+						SendFWToSlaver(pInfo);					
+						break;
+					case UPDATE_SUC_TYPE:
+						L_DEBUG("--------------------------send end! total %d sector\n",pInfo->m_FWCount+1);
+						pInfo->m_FWCount++;	
+						break;
+					default:
+						res = -1;	//-- error type --//
+						break;
+				}
+			}//-- if (FW_UPDATE_FLAG1 == p[5] && FW_UPDATE_FLAG0 == p[6]) --//
+			
+			if (1 == res)
+			{
+				break;
+			}
+			
+			p++;
+		}//-- if (NULL != p) --//
+	}
+}
+
+/***********************************************************************
+**Function Name	: SendFWToSlaver
+**Description	: send fw to slaver.
+**Parameter		: pInfo - fw update information.
+**Return		: 0 > send failed, 0 - success.
+***********************************************************************/
+static int SendFWToSlaver(FWUpdateInformation *pInfo)
+{
+	FILE *p_read_fw = 0;
+	int real_read = 0;
+	int read_len = 0;
+	int crc_code = 0;
+	int res = 0;
+	int tmp = 0;
+	unsigned char fw_buff[AVG_SECTION_FW_SIZE + 10 + SLAVER_ADDR_LEN] = {0};
+	
+	//--- head flag ---//
+	fw_buff[0] = FW_UPDATE_FLAG0;
+	fw_buff[1] = FW_UPDATE_FLAG1;
+	
+	//--- data type ---//
+	fw_buff[2] = FW_DATA_TYPE;
+	
+	//--- slaver address ---//
+	memcpy(&fw_buff[3], g_SlaverAddrTable[pInfo->m_UpdateAisle.m_CurSlaverTabPosition], SLAVER_ADDR_LEN);
+	tmp = 3 + SLAVER_ADDR_LEN;
+	
+	//--- part fw data ---//
+	p_read_fw = fopen(FW_PATH, "rb");
+	
+	if (NULL == p_read_fw)
+	{
+		printf("open file failed!\n");
+		return -1;
+	}
+	
+	read_len = (pInfo->m_FWCount + 1) < g_FWInfo.m_SectionSum ? AVG_SECTION_FW_SIZE : g_FWInfo.m_LastSectionSize;
+
+	fseek(p_read_fw, (AVG_SECTION_FW_SIZE * pInfo->m_FWCount), SEEK_SET);
+
+	real_read = fread(&fw_buff[tmp], 1, read_len, p_read_fw);
+
+	if (read_len != real_read)
+	{
+		printf("%dth read %s error!\n",pInfo->m_FWCount+1,FW_PATH);
+		fclose(p_read_fw);
+		return -2;
+	}
+
+	fclose(p_read_fw);
+
+	//--- crc code ---//
+	crc_code = CreateCRC16CheckCode_1(&fw_buff[tmp], read_len);
+	
+	fw_buff[read_len + tmp] = (unsigned char)(crc_code >> 8);
+	fw_buff[read_len + tmp + 1] = (unsigned char)crc_code; 
+
+	L_DEBUG("crc code0x%x%x\n", fw_buff[read_len + 5], fw_buff[read_len + 6]);
+	
+	//--- end flag ---//
+	fw_buff[read_len + tmp + 2] = FW_UPDATE_FLAG1;
+	fw_buff[read_len + tmp + 3] = FW_UPDATE_FLAG0;
+
+	L_DEBUG("end flag%c%c\n", fw_buff[read_len + tmp + 2], fw_buff[read_len + tmp + 3]);
+	
+	//--- send ---//
+	read_len = (read_len + tmp + 4);
+	res = write(pInfo->m_UpdateAisle.m_Aisle, fw_buff, read_len);
+	L_DEBUG("send fw = %dbyte\n",res);
+	
+	if (res != read_len)
+	{
+		printf("send data %dth failed!\n", pInfo->m_FWCount+1);
+		return -3;
+	}
+	
+	return 0;
+}
+
+/***********************************************************************
+**Function Name	: ProcProtocolData
+**Description	: process ack message from slaver.
+**Parameter		: fd - in
+				: pData - protocol data.
+                : len - the length of uart data.
+**Return		: none.
+***********************************************************************/
+void ProcProtocolData(int fd, unsigned char *pData, unsigned int len)
+{
+    char flag[3] = {0}; 
+	int res = 0;
+    
+    if (NULL == pData)
+    {
+        return;
+    }
+    
+    flag[0] = ACK_MSG_FLAG0;
+    flag[1] = ACK_MSG_FLAG1;
+	
+	//--- priority 1 ---//
+	ProcCommunicationProtocolData(fd, pData, len, flag, ALERT_DATA_TYPE);
+	
+	//--- priority 2 ---//
+	res = GetUpdateInfoTabPosition(fd);
+	
+	if (-1 != res)
+	{
+		if (1 == g_UpdateInfo[res].m_IsProcUpdateAck)
+		{
+			flag[0] = FW_UPDATE_FLAG0;
+			flag[1] = FW_UPDATE_FLAG1;
+			ProcUpdateProtocolData(&g_UpdateInfo[res], pData, len, flag);
+		}
+	}
+	
+	//--- priority 3 ---//
+    flag[0] = ACK_MSG_FLAG0;
+    flag[1] = ACK_MSG_FLAG1;
+	ProcCommunicationProtocolData(fd, pData, len, flag, STATE_DATA_TYPE);
+	
+}
+
+/***********************************************************************
+**Function Name	: IsFWUpdateSuccess
+**Description	: check whether update is successful by aisle.
+**Parameter		: aisle - in
+**Return		: 1 - updating, 0 - update successful, -1 - error aisle.
+***********************************************************************/
+int IsFWUpdateSuccess(int aisle)
+{
+	int res = 0;
+
+	res = GetUpdateInfoTabPosition(aisle);
+
+	if (-1 == res)
+	{
+		printf("error aisle\n");
+		return -1;
+	}
+
+	return (g_UpdateInfo[res].m_FWCount < g_FWInfo.m_SectionSum ? 1 : 0);
+}
+
+/***********************************************************************
+**Function Name	: ClearFWCount
+**Description	: clear fw count by aisle
+**Parameter		: aisle - in
+**Return		: none.
+***********************************************************************/
+void ClearFWCount(int aisle)
+{
+	int res = 0;
+
+	res = GetUpdateInfoTabPosition(aisle);
+	
+	if (-1 == res)
+	{
+		printf("error aisle\n");
+		return;
+	}
+	
+	g_UpdateInfo[res].m_FWCount = 0;
+}
+
+/***********************************************************************
+**Function Name	: SetProcUpdateAck
+**Description	: set 1 you can process slaver ack update data ,0 can not.
+**Parameter		: aisle - in
+				: n - 0 or 1
+**Return		: none.
+***********************************************************************/
+void SetProcUpdateAck(int aisle, unsigned char n)
+{
+	int res = 0;
+
+	res = GetUpdateInfoTabPosition(aisle);
+	
+	if (-1 == res)
+	{
+		printf("error aisle\n");
+		return;
+	}
+	
+	g_UpdateInfo[res].m_IsProcUpdateAck = n;
+}
+
+/***********************************************************************
+**Function Name	: SetCurUpdateInfoSlaverTabPosition
+**Description	: set a position by aisle
+**Parameter		: aisle - in.
+				: position - in.
+**Return		: none.
+***********************************************************************/
+void SetCurUpdateInfoSlaverTabPosition(int aisle, unsigned int position)
+{
+	int res = 0;
+
+	res = GetUpdateInfoTabPosition(aisle);
+	
+	if (-1 == res)
+	{
+		printf("error aisle\n");
+		return;
+	}
+	
+	g_UpdateInfo[res].m_UpdateAisle.m_CurSlaverTabPosition = position;	
+}
+
+/***********************************************************************
+**Function Name	: GetUpdateInfoTabSlaverSum
+**Description	: get slaver sum by aisle.
+**Parameter		: aisle - in.
+**Return		: slaver sum.
+***********************************************************************/
+unsigned int GetUpdateInfoTabSlaverSum(int aisle)
+{
+	int res = 0;
+
+	res = GetUpdateInfoTabPosition(aisle);
+	
+	if (-1 == res)
+	{
+		printf("error aisle\n");
+		return 0;
+	}
+	
+	return g_UpdateInfo[res].m_UpdateAisle.m_SlaverSum;	
+}
+
+/***********************************************************************
+**Function Name	: GetCurUpdateInfoSlaverTabPosition
+**Description	: get slaver position by aisle.
+**Parameter		: aisle - in.
+**Return		: -1 - error aisle, current slaver position.
+***********************************************************************/
+unsigned int GetCurUpdateInfoSlaverTabPosition(int aisle)
+{
+	int res = 0;
+
+	res = GetUpdateInfoTabPosition(aisle);
+	
+	if (-1 == res)
+	{
+		printf("error aisle\n");
+		return -1;
+	}
+
+	return g_UpdateInfo[res].m_UpdateAisle.m_CurSlaverTabPosition;	
+}
+
+/***********************************************************************
+**Function Name	: SetCurCommuInfoSlaverTabPosition
+**Description	: set current slaver table position by aisle
+**Parameter		: aisle - in.
+				: position - in.
+**Return		: none.
+***********************************************************************/
+void SetCurCommuInfoSlaverTabPosition(int aisle, unsigned int position)
+{
+	int res = 0;
+
+	res = GetCommuInfoTabPosition(aisle);
+	
+	if (-1 == res)
+	{
+		printf("SetCurCommuInfoTabPosition:error aisle\n");
+		return;
+	}
+	
+	g_CommuInfo[res].m_CommuAisle.m_CurSlaverTabPosition = position;	
+}
+
+/***********************************************************************
+**Function Name	: GetCurCommuInfoSlaverTabPosition
+**Description	: get current slaver table position.
+**Parameter		: aisle - in.
+**Return		: none.
+***********************************************************************/
+unsigned int GetCurCommuInfoSlaverTabPosition(int aisle)
+{
+	int res = 0;
+
+	res = GetCommuInfoTabPosition(aisle);
+	
+	if (-1 == res)
+	{
+		printf("GetCurCommuInfoTabPosition:error aisle\n");
+		return -1;
+	}
+	
+	return g_CommuInfo[res].m_CommuAisle.m_CurSlaverTabPosition;		
+}
+
+/***********************************************************************
+**Function Name	: GetCommuInfoTabSlaverSum
+**Description	: get slaver sum by aisle.
+**Parameter		: aisle - in.
+**Return		: none.
+***********************************************************************/
+unsigned int GetCommuInfoTabSlaverSum(int aisle)
+{
+	int res = 0;
+
+	res = GetCommuInfoTabPosition(aisle);
+	
+	if (-1 == res)
+	{
+		printf("GetCommuInfoTabSlaverSum:error aisle\n");
+		return -1;
+	}
+	
+	return g_CommuInfo[res].m_CommuAisle.m_SlaverSum;	
+}
+
+/***********************************************************************
+**Function Name	: IsRecCommuDat
+**Description	: check whether received data by aisle.
+**Parameter		: aisle - in.
+**Return		: none.
+***********************************************************************/
+int IsRecCommuDat(int aisle)
+{
+	int res = 0;
+
+	res = GetCommuInfoTabPosition(aisle);
+	
+	if (-1 == res)
+	{
+		printf("IsRecCommuDat:error aisle\n");
+		return -1;
+	}
+	
+	return ((g_CommuInfo[res].m_RecCommuDatFlag & RECEIVED_COMMU__FLAG) ? 1 : 0);		
+}
+
+
+/***********************************************************************
+**Function Name	: ClearRecCommuFlag
+**Description	: clear flag received data.
+**Parameter		: aisle - in.
+				: n - 0:clear whether received communication flag,1 - clear first rec flag, 2 - clear all
+**Return		: none.
+***********************************************************************/
+void ClearRecCommuFlag(int aisle, unsigned char n)
+{
+	int res = 0;
+
+	res = GetCommuInfoTabPosition(aisle);
+	
+	if (-1 == res)
+	{
+		printf("ClearRecCommuFlag:error aisle\n");
+		return ;
+	}
+	
+	switch (n)
+	{
+		case 2:
+			g_CommuInfo[res].m_RecCommuDatFlag = FIRST_REC_COMMU_FLAG;	
+			break;
+		case 1:
+			g_CommuInfo[res].m_RecCommuDatFlag |= FIRST_REC_COMMU_FLAG;
+			break;		
+		case 0:
+			g_CommuInfo[res].m_RecCommuDatFlag &= 0xFE;
+			break;
+		default:
+			break;
+	}
+}
+
+/***********************************************************************
+**Function Name	: SetSlaversState
+**Description	: set slavers State.
+**Parameter		: aisle - in
+				: n - in.
+**Return		: none.
+***********************************************************************/
+extern int SetSlaversState(int aisle, unsigned int n)
+{
+	unsigned char ack_buff[7] = {REQ_MSG_FLAG0, REQ_MSG_FLAG1, 0, 0, 0, REQ_MSG_FLAG1, REQ_MSG_FLAG0};
+
+	if (SILE_TYPE == n)
+	{
+		ack_buff[4] = SILE_TYPE;
+	}
+	else if (CANCEL_SILE_TYPE == n)
+	{
+		ack_buff[4] = CANCEL_SILE_TYPE;
+	}
+	else
+	{
+		return -1;
+	}
+
+	write(aisle, ack_buff, 7);	//-- cancel slaver silence --//
+
+	return 0;
+}
+
+
+
+
+
+
+
+
+
+

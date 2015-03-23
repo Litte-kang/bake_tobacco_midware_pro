@@ -1,0 +1,48 @@
+#ifndef _MY_PUBLIC_FUNCTION_H_
+#define _MY_PUBLIC_FUNCTION_H_
+
+#include <sys/time.h>
+
+#ifndef NULL
+#define NULL (void*)0
+#endif
+
+//--------------------------------------MACRO---------------------------------------//
+
+#define TIME					struct timeval
+#define GET_SYS_CURRENT_TIME(n)	gettimeofday(&n, NULL)
+#define IS_TIMEOUT(n,m)			IsTimeout(&n, m)
+
+#if 1
+#define L_DEBUG	printf
+#else
+#define L_DEBUG
+#endif
+
+//-----------------------------------MACRO END-------------------------------------//
+
+//-------------------------------------------NEW TYPE------------------------------------//
+
+typedef struct _AisleInfo
+{
+	int 			m_Aisle;
+	unsigned int	m_CurSlaverTabPosition;
+	unsigned int	m_SlaverSum;	
+}AisleInfo;
+
+//-----------------------------------------NEW TYPE END-----------------------------------//
+
+//---------------------------------------DECLARATION VARIAVLE--------------------------------------------//
+
+
+//-------------------------------------DECLARATION VARIABLE END-------------------------------------------//
+
+//--------------------------------------------------DECLARATION FUNCTION----------------------------------------//
+
+extern int IsTimeout(int StartTime, unsigned int threshold);
+extern unsigned char* MyStrStr(unsigned char *pSrc, unsigned int SrcLen, const unsigned char *pDst, unsigned int DstLen, unsigned int *len);
+extern int CreateCRC16CheckCode_1(unsigned char *pData, unsigned int len);
+
+//-----------------------------------------------DECLARATION FUNCTION END--------------------------------------------//
+
+#endif

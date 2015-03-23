@@ -1,0 +1,305 @@
+#include "MySocket.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <errno.h>
+#include <string.h>
+#include <netdb.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <pthread.h>
+#include <signal.h>
+
+//----------------------Define macro for xxx-------------------//
+
+//---------------------------end-------------------------------//
+
+
+//--------------------Define variable for xxx------------------//
+
+
+/*
+Description			: /
+Default value		: /
+The scope of value	: /
+First used			: MySocketInit();
+*/
+static SOCKADDR_IN g_ServAddr;
+
+/*
+Description			: socket fd
+Default value		: -1
+The scope of value	: /
+First used			: MySocketInit();
+*/
+static int g_SocketFD = -1;
+
+/*
+Description			: server address
+Default value		: /
+The scope of value	: /
+First used			: MySocketInit();
+*/
+static unsigned char  g_ServIPAddr[16];
+
+/*
+Description			: CONNECTED_NO - do not connect server, CONNECTED_YES - connected server.
+Default value		: CONNECTED_NO
+The scope of value	: CONNECTED_YES or CONNECTED_NO
+First used			: /;
+*/
+static char g_IsConnectedServer = CONNECTED_NO;
+
+//---------------------------end-------------------------------//
+
+
+//------------Declaration function for xxx--------------//
+
+static void ConnectServerThrd(void *pArg);
+static void CacthSig(int SigNum);
+
+//---------------------------end-----------------------//
+
+
+/***********************************************************************
+**Function Name	: MySocketInit
+**Description	: create socket.
+**Parameters	: pHost - local host or ip address.
+				: port - in
+**Return		: 0 - ok, other value - failed.
+***********************************************************************/
+int MySocketInit(unsigned char *pHostAddr, unsigned short port)
+{
+	if (NULL == pHostAddr)
+	{
+		printf("host address error!\n");
+		return -1;
+	}
+	
+	memcpy(g_ServIPAddr, pHostAddr, strlen(pHostAddr));	
+	g_ServIPAddr[15] = 0;
+
+	g_SocketFD = socket(AF_INET, SOCK_STREAM, 0);
+	if (-1 == g_SocketFD)
+	{
+		printf("create socket failed!\n");
+		return -3;
+	}
+
+	g_ServAddr.sin_family = AF_INET;
+	g_ServAddr.sin_port = htons(port);
+	g_ServAddr.sin_addr.s_addr = inet_addr(g_ServIPAddr);
+
+	bzero(&(g_ServAddr.sin_zero), 8);
+
+	return 0;
+}
+
+
+/***********************************************************************
+**Function Name	: CacthSig
+**Description	: this is callback,when a specified signal come, call it.
+**Parameters	: SigNum - signal type.
+**Return		: none.
+***********************************************************************/
+static void CacthSig(int SigNum)
+{
+	switch (SigNum)
+	{
+		case SIGPIPE:
+			printf("catch SIGPIPE!\n");
+			g_IsConnectedServer = CONNECTED_NO;
+			break;
+		default:
+			break;
+	}
+}
+
+/***********************************************************************
+**Function Name	: ConnectServerThrd
+**Description	: if disconnect, do not until connect server.
+**Parameters	: none.
+**Return		: none.
+***********************************************************************/
+static void ConnectServerThrd(void *pArg)
+{
+	int thrd_num = (int)pArg;
+	char tmp = 0;
+
+	printf("connect server thread!\n");
+    fflush(stdout);
+
+	while (1)
+	{
+		tmp = connect(g_SocketFD, (SOCKADDR*)&g_ServAddr, sizeof(SOCKADDR));
+		sleep(2);
+		if (CONNECTED_YES == tmp)
+		{
+			g_IsConnectedServer = tmp;
+			tmp = g_ServAddr.sin_addr.s_addr;
+			printf("connect %d.",tmp);
+			tmp = g_ServAddr.sin_addr.s_addr >> 8;
+			printf("%d.",tmp);
+			tmp = g_ServAddr.sin_addr.s_addr >> 16;
+			printf("%d.",tmp);
+			tmp = g_ServAddr.sin_addr.s_addr >> 24;
+			printf("%d success!\n",tmp);	
+
+			while (CONNECTED_YES == g_IsConnectedServer);
+			
+			//--- create new socket to connect server again ---//
+			if (CONNECTED_NO == g_IsConnectedServer)
+			{
+				close(g_SocketFD);
+				MySocketInit(g_ServIPAddr, PORT);
+			}
+		
+		}
+		else
+		{
+			tmp = g_ServAddr.sin_addr.s_addr;
+			printf("connect %d.",tmp);
+			tmp = g_ServAddr.sin_addr.s_addr >> 8;
+			printf("%d.",tmp);
+			tmp = g_ServAddr.sin_addr.s_addr >> 16;
+			printf("%d.",tmp);
+			tmp = g_ServAddr.sin_addr.s_addr >> 24;
+			printf("%d failed!\n",tmp);
+		}
+	}
+
+	pthread_exit(NULL);
+}
+
+/***********************************************************************
+**Function Name	: ConnectServer
+**Description	: connect server.
+**Parameters	: none.
+**Return		: none.
+***********************************************************************/
+int ConnectServer()
+{
+	pthread_t thread;
+	void *thrd_ret = NULL;
+	int res = 0;
+	struct sigaction action;
+	struct sigaction sa;
+	
+	//--- register a signal to check whether disconnect ---//
+	sa.sa_handler = SIG_IGN;		//-- prevent termina process --//
+
+	action.sa_handler = CacthSig;
+
+	sigemptyset(&action.sa_mask);
+
+	action.sa_flags = 0;
+
+	sigaction(SIGPIPE, &sa, 0);
+	sigaction(SIGPIPE, &action, 0);
+
+	res = pthread_create(&thread, NULL, ConnectServerThrd, (void*)0);
+	if (0 != res)
+	{
+		printf("create connect server thread failed!\n");
+		exit(1);
+	}
+
+	return 0;
+}
+
+/***********************************************************************
+**Function Name	: RecDataFromServer
+**Description	: recieve data from server.
+**Parameters	: pBuff - store data recieved.
+				: len - expectations.
+**Return		: none.
+***********************************************************************/
+int RecDataFromServer(unsigned char *pBuff, unsigned int len)
+{
+	int rec_len = 0;
+	int max_fd = 0;
+	fd_set inset;
+
+	if (CONNECTED_NO == g_IsConnectedServer)	
+	{
+		printf("disconnected server!\n");
+		return -3;
+	}
+
+	if (NULL == pBuff)
+	{
+		printf("memory error!\n");
+		return -1;
+	}
+	
+	FD_ZERO(&inset);
+	FD_SET(g_SocketFD, &inset);	
+	max_fd = g_SocketFD + 1;
+	
+	//--- wait data from server ---//
+	select(max_fd,  &inset, NULL, NULL, NULL);	
+
+	if (!FD_ISSET(g_SocketFD, &inset))
+	{
+		printf("socket error!\n");
+		return -4;
+	}
+
+	FD_CLR(g_SocketFD, &inset);	
+	
+	rec_len = recv(g_SocketFD, pBuff, len, 0);	
+	if (-1 == rec_len)
+	{
+		printf("recieve data from server failed!\n");
+		return -2;
+	}
+	else if (0 == rec_len)
+	{
+		g_IsConnectedServer = CONNECTED_NO;
+	}	
+
+	return 0;
+	
+}
+
+/***********************************************************************
+**Function Name	: SendDataToServer
+**Description	: send data to server.
+**Parameters	: pBuff - store data recieved.
+				: len - expectations.
+**Return		: none.
+***********************************************************************/
+int SendDataToServer(unsigned char *pBuff, unsigned int len)
+{
+	int send_len = 0;	
+
+	if (CONNECTED_NO == g_IsConnectedServer)	
+	{
+		printf("disconnected server!\n");
+		return -3;
+	}
+
+	if (NULL == pBuff)
+	{
+		printf("memory error!\n");
+		return -1;
+	}
+
+	send_len = send(g_SocketFD, pBuff, len, 0);
+	if (-1 == send_len)
+	{
+		printf("send data to server failed!\n");
+		return -2;
+	}
+
+	return 0;
+}
+
+
+
+
+
+
+
+
+
+
