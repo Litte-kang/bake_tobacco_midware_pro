@@ -12,7 +12,7 @@ Default value		: /
 The scope of value	: /
 First used			: /
 */
-var remoteCmd = require('./node_modules/RemoteCmd');
+var remoteCmd = require('./node_modules/remote_cmd');
 
 /*
 Description			: use 'CProcess'.
@@ -20,7 +20,7 @@ Default value		: /
 The scope of value	: /
 First used			: /
 */
-var cProcess = require('./node_modules/cProcess');
+var cProcess = require('./node_modules/c_process');
 
 /*
 Description			: use 'OSInfo'.
@@ -28,7 +28,7 @@ Default value		: /
 The scope of value	: /
 First used			: /
 */
-var osInfo = require('./node_modules/OsInfo');
+var osInfo = require('./node_modules/os_info');
 
 /*
 Description			: use 'fs'.
@@ -86,6 +86,12 @@ First used			: /
 */
 var date = new Date();
 
+/*
+Description			: for timer.
+Default value		: /
+The scope of value	: /
+First used			: /
+*/
 var intervalObj;
 
 /*******************************************
