@@ -1,4 +1,4 @@
-# how to use the application
+# how to use the application?
 cd innotek_exec
 /bin/sh start
 
