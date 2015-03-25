@@ -45,7 +45,7 @@
   <td height="30" align="left">
     <input name="midId" type="text" id="midId" value="0000000000" maxlength="10">
 	&nbsp;
-    <input name="midIdSubmitButton" type="button" class="MYBUTTON" id="midIdSubmitButton" onClick="ButtonEvt(this)" value="提交" /> </td>
+    <input name="midIdSubmitButton" type="button" class="MYBUTTON" id="midIdSubmitButton" onClick="buttonEvt(this)" value="提交" /> </td>
 </tr>
 <tr>
   <td height="30" colspan="2" align="left" valign="middle"><span class="STYLE1">注：修改中间件ID后需重启后才能生效</span></td>
@@ -62,12 +62,12 @@
     <td width="108" height="30" align="left" valign="middle" class="LABFONT">自控仪地址</td>
     <td height="30"><input name="address" type="text" id="address" maxlength="5" >
     &nbsp;
-    <input name="addButton" type="button" class="MYBUTTON" id="addButton" onClick="ButtonEvt(this)" value="添加">
-&nbsp;      <input name="delButton" id="delButton" type="button" onClick="ButtonEvt(this)" class="MYBUTTON" value="删除" /></td>
+    <input name="addButton" type="button" class="MYBUTTON" id="addButton" onClick="buttonEvt(this)" value="添加">
+&nbsp;      <input name="delButton" id="delButton" type="button" onClick="buttonEvt(this)" class="MYBUTTON" value="删除" /></td>
   </tr>
   <tr>
-    <td height="30" colspan="2"><input name="addrSumbitButton" type="button" class="MYBUTTON" id="addrSumbitButton" onClick="ButtonEvt(this)" value="提交">
-      &nbsp;<input name="resetButton" type="button" class="MYBUTTON" id="resetButton" onClick="ButtonEvt(this)" value="重置"></td>
+    <td height="30" colspan="2"><input name="addrSumbitButton" type="button" class="MYBUTTON" id="addrSumbitButton" onClick="buttonEvt(this)" value="提交">
+      &nbsp;<input name="resetButton" type="button" class="MYBUTTON" id="resetButton" onClick="buttonEvt(this)" value="重置"></td>
   </tr>
   <tr>
     <td height="34" colspan="2"><div id="displayCur" ></div></td>
@@ -92,13 +92,15 @@
 
 </script>
 
-<script type="text/javascript">var newSlaveAddrsArray = new Array();
+<script type="text/javascript">
+
+var newSlaveAddrsArray = new Array();
 var newSlaveAddrs = "";
 var curSlaveAddrs00 = "";
 var curSlaveAddrsSum = 0;
 var ttt = 0;
 
-function ButtonEvt(btn)
+function buttonEvt(btn)
 {
 	var slavesAddrDisplay = document.getElementById("displayNew");
 	var slaveAddr = document.getElementById("address");
@@ -239,18 +241,18 @@ function createXmlHttpRequest()
 
 function sendHttpReq(method, url, data)
 {	
-	var http_request = createXmlHttpRequest();
+	var httpRequest = createXmlHttpRequest();
 	var text;
 	var tmp = " ";
 
-	http_request.abort();
-	http_request.open(method, url, false);
+	httpRequest.abort();
+	httpRequest.open(method, url, false);
 
-	http_request.send(data);
+	httpRequest.send(data);
 
-	text = http_request.responseText;
+	text = httpRequest.responseText;
 	
-	delete http_request;
+	delete httpRequest;
 	
 	return text;
 }

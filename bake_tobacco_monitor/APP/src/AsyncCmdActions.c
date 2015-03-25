@@ -227,8 +227,6 @@ static void SendConfigData(int aisle, int id, int IsSingle)
 		position = GetCurSlavePositionOnTab(aisle);		
 	}
 
-	L_DEBUG("%d:%d\n",slave_sum, position);
-
 	while (position < slave_sum)
 	{	
 	
@@ -280,7 +278,7 @@ static void SendConfigData(int aisle, int id, int IsSingle)
 				
 		}while(4 > send_again_counter);  //-- we will notice next slave, if we have sent 3 times --//
 		
-		//--- tell server what we have updated a machine ---//
+		//--- tell server what we modify ok ---//
 		res = UploadAckToSer(g_RemoteData.m_Type, CONF_DATA_ACK_BACKUP, data, (1 + SLAVE_ADDR_LEN));
 		//--- end ---//	
 		

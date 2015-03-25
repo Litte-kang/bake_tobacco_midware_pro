@@ -79,10 +79,10 @@ int RemoteCMD_Init()
 ***********************************************************************/
 static int GetFWInfo(int FWType)
 {
-	int fw_size = 0;
-	int sections = 0;
-	int last_section_size = 0;
-	FILE *fp = NULL;
+	int fw_size 			= 0;
+	int sections 			= 0;
+	int last_section_size 	= 0;
+	FILE *fp 				= NULL;
 	
 	fp = fopen(FW_0_VER, "r");
 	
@@ -399,6 +399,7 @@ static int 	RemoteCMD_GetSlaveData(int fd, MyCustMadeJson CMDInfo)
 ***********************************************************************/
 int RemoteCMD_Pro(int fd, MyCustMadeJson CMDInfo)
 {
+	//--
 	if (REMOTE_CMD_NEW_FW_NOTICE == CMDInfo.m_Type)
 	{
 		L_DEBUG("UPDATE CMD\n");

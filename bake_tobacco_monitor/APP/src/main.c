@@ -269,7 +269,7 @@ static void SendUartData(int fd)
 					AsyncCmd_AlertSearch(fd, id, (id >= 0x0000ffff ? 0 : 1 ));
 				}
 				break;
-			case 'P':	//-- send configuration --//
+			case 'P':	//-- modify slaves configuration --//
 				{
 					AsyncCmd_Config(fd, id, (id >= 0x0000ffff ? 0 : 1 ));
 				}

@@ -86,14 +86,6 @@ First used			: /
 */
 var date = new Date();
 
-/*
-Description			: get server object.
-Default value		: /
-The scope of value	: /
-First used			: /
-*/
-var serverSocket = net.createServer();
-
 var intervalObj;
 
 /*******************************************
@@ -165,7 +157,7 @@ fs.open("./conf/mid_id", "r", function(err, fd){
 			
 			///*
 			//--- send mid id to remote server. ---//
-			intervalObj = setInterval(TimeoutCallback, (60*1000));
+			intervalObj = setInterval(timeoutCallback, (60*1000));
 			//*/					
 		}
 		else
@@ -180,24 +172,24 @@ fs.open("./conf/mid_id", "r", function(err, fd){
 	}
 }); //--- end of fs.open("./conf/mid_id/mid_id", function(err, fd) ---//
 
-function TimeoutCallback()
+function timeoutCallback()
 {
-	var client_socket = new net.Socket();
-	var cmd_data = '';
+	var clientSocket = new net.Socket();
+	var cmdData = '';
 			
 	clearInterval(intervalObj);
 	
-	client_socket.connect(PORT[0], SER_IP, function(){
+	clientSocket.connect(PORT[0], SER_IP, function(){
 
 		var json = 
 		{
 			type:3,
 			address:MIDWARE_ID,
-			data:[0]
+			data:[0,0,0,0,0,0,0,0,0]
 		};
 		var info;
 						
-		info = osInfo.GetOSInfo();
+		info = osInfo.getOSInfo();
 		
 		json.data[0] = info.totallMem;
 		json.data[1] = info.usedMem;
@@ -245,39 +237,45 @@ function TimeoutCallback()
 				}
 				else
 				{
-					client_socket.write(JSON.stringify(json));			
+					clientSocket.write(JSON.stringify(json));			
 				}
 			});
 		});
 						
-	}); //--- end of client_socket.connect(PORT[1], SER_IP, function() ---//
+	}); //--- end of clientSocket.connect(PORT[1], SER_IP, function() ---//
 	
-	client_socket.on('data', function(chunk){
+	clientSocket.on('data', function(chunk){
 	
-		cmd_data += chunk;
+		cmdData += chunk;
 	});
 	
-	client_socket.on('end', function(){
+	clientSocket.on('end', function(){
 	
-		var json;
+		var jsons = [];
 
-		console.log("cmd data:" + cmd_data);
+		console.log("cmd data:" + cmdData);
 
 		try
 		{
-			if (0 < cmd_data.length)
+			if (cmdData.length)
 			{
-				json = JSON.parse(cmd_data);
+				var cmdJsons = JSON.parse(cmdData);
 			
-				if (MIDWARE_ID === json.address)
-				{
-					//----------------------------------------------------------------------//
-					remoteCmd.ProRemoteCmd(PORT[1], SER_IP, json);
-					//----------------------------------------------------------------------//	
-				}
-				else
-				{
-					console.log("mid id error!");
+				if (cmdJsons.length)
+				{								
+					for (var i = 0; i < cmdJsons.length; ++i)
+					{
+						jsons.push(cmdJsons[i].command);
+					}
+							
+					if (MIDWARE_ID === jsons[0].address)
+					{
+						remoteCmd.proRemoteCmd(PORT[1], SER_IP, jsons);
+					}
+					else
+					{
+						console.log("mid id error!");
+					}
 				}
 			}		
 		}
@@ -286,23 +284,23 @@ function TimeoutCallback()
 			console.log(err);
 		}	
 		
-		client_socket.destroy();	
+		clientSocket.destroy();	
 	});
 
-	client_socket.on('error', function(err){
+	clientSocket.on('error', function(err){
 		
 		console.log("ERROR:", err.errno);
 		
-		client_socket.destroy();
+		clientSocket.destroy();
 	});
 	
-	client_socket.on('close', function(){
+	clientSocket.on('close', function(){
 	
 		console.log("client close");
 		
-		client_socket.removeAllListeners();
+		clientSocket.removeAllListeners();
 		
-		intervalObj = setInterval(TimeoutCallback, (60*1000));
+		intervalObj = setInterval(timeoutCallback, (60*1000));
 		
 	});	
 }
@@ -416,43 +414,41 @@ function proPost(url, body, response)
 {
 	if ("/slave_addrs" === url)
 	{	
-		var json = 
+		var jsons = [
 		{
 			type:15,
 			address:MIDWARE_ID,
-			data:[0]
-		};
-		var json1;
-		var sum = 0;
+			data:[]
+		}];
+		var bodyJson;
 		var id = 0;
 		var i = 0;
 		
-		json1 = JSON.parse(body);
+		bodyJson = JSON.parse(body);
 		
-		if (0 < json1.addresses.length)
+		if (0 < bodyJson.addresses.length)
 		{
-	
-			for (i = 0; i < json1.addresses.length; ++i)
+			
+			jsons[0].data.push(bodyJson.action);
+			jsons[0].data.push(bodyJson.addresses.length);
+			
+			for (i = 0; i < bodyJson.addresses.length; ++i)
 			{	
-				id = json1.addresses[i];	
-				json.data[2 + sum] = id >> 8;
-				json.data[3 + sum] = id & 0x00ff;
-				
-				sum += 2;
+				id = bodyJson.addresses[i];	
+				jsons[0].data.push((id >> 8));
+				jsons[0].data.push((id & 0x00ff));
 			}
 			
-			json.data[0] = json1.action;
-			json.data[1] = json1.addresses.length;
-			json.data[json.data.length] = Number(json1.aisle);
+			jsons[0].data.push(Number(bodyJson.aisle));
 		
-			console.log(json);
+			console.log(jsons);
 		
 			//----------------------------------------------------------------------//
-			remoteCmd.ProRemoteCmd(PORT[1], SER_IP, json);
+			remoteCmd.proRemoteCmd(PORT[1], SER_IP, jsons);
 			//----------------------------------------------------------------------//
 	
 			sendHttpResponse_TEXT(response, " ", 201);
-		} //-- if (0 < json1.addresses.length) --//
+		} //-- if (0 < bodyJson.addresses.length) --//
 	}
 	else if ("/mid_id" === url)
 	{		
