@@ -2,3 +2,8 @@
 中间件中文ID：无
 服务器IP：223.4.21.219
 自控仪地址：无
+cd innotek_exec
+
+/bin/sh start
+
+ok!

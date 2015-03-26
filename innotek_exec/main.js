@@ -271,7 +271,14 @@ function timeoutCallback()
 				{								
 					for (var i = 0; i < cmdJsons.length; ++i)
 					{
-						jsons.push(cmdJsons[i].command);
+						var jsonElement = 
+						{
+							type:cmdJsons[i].command.type,
+							address:cmdJsons[i].command.address,
+							data:cmdJsons[i].command.data
+						};
+						
+						jsons.push(jsonElement);
 					}
 							
 					if (MIDWARE_ID === jsons[0].address)
