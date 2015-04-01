@@ -467,7 +467,6 @@ static void SendFWUpdateNotice(int aisle, int id, int IsSingle)
 ***********************************************************************/
 int AsyncCmd_AlertSearch(int aisle, int id, int IsSingle)
 {
-	TIME start;
 	int res = 0;
 	
 	//--- connect server ---//					
@@ -480,22 +479,6 @@ int AsyncCmd_AlertSearch(int aisle, int id, int IsSingle)
 	{
 		g_IsCommu++;
 	}
-	
-	GET_SYS_CURRENT_TIME(start);	//-- get a start time --//
-	
-	while(0 == IsConnectedServer())
-	{
-		res = IS_TIMEOUT(start, (15 * 1000 + 5));	//-- we will not wait, if not connect server in 15s --//
-		if (0 != res)
-		{
-			printf("%s:connected timeout!\n",__FUNCTION__);
-			break;
-		}
-		
-		Delay_ms(5);
-	}
-	
-	sleep(2);
 
 	//--- search alert information ---//
 	SendCommonReqInfo(aisle, id, IsSingle, ALERT_DATA_TYPE);
@@ -531,7 +514,6 @@ int AsyncCmd_AlertSearch(int aisle, int id, int IsSingle)
 ***********************************************************************/
 int AsyncCmd_StatusSearch(int aisle, int id, int IsSingle)
 {
-	TIME start;
 	int res = 0;
 	
 	//--- connect server ---//					
@@ -544,22 +526,6 @@ int AsyncCmd_StatusSearch(int aisle, int id, int IsSingle)
 	{
 		g_IsCommu++;
 	}
-	
-	GET_SYS_CURRENT_TIME(start);	//-- get a start time --//
-	
-	while(0 == IsConnectedServer())
-	{
-		res = IS_TIMEOUT(start, (15 * 1000 + 5));	//-- we will not wait, if not connect server in 15s --//
-		if (0 != res)
-		{
-			printf("%s:connected timeout!\n",__FUNCTION__);
-			break;
-		}
-		
-		Delay_ms(5);
-	}
-	
-	sleep(1);
 	
 	//--- search status information ---//
 	SendCommonReqInfo(aisle, id, IsSingle, STATUS_DATA_TYPE);				
@@ -604,8 +570,6 @@ int AsyncCmd_RestartSlave(int aisle, int id, int IsSingle)
 					
 	g_IsCommu++;						
 
-	sleep(1);
-	
 	//--- send restart notice ---//
 	SendCommonReqInfo(aisle, id, IsSingle, RESTART_SLAVE_DATA_TYPE);			
 
@@ -643,7 +607,6 @@ int AsyncCmd_RestartSlave(int aisle, int id, int IsSingle)
 ***********************************************************************/
 int AsyncCmd_FWUpdate(int aisle, int id, int IsSingle)
 {
-	TIME start;
 	int res = 0;
 	
 	//--- connect server ---//					
@@ -656,22 +619,6 @@ int AsyncCmd_FWUpdate(int aisle, int id, int IsSingle)
 	{
 		g_IsCommu++;
 	}
-	
-	GET_SYS_CURRENT_TIME(start);	//-- get a start time --//
-	
-	while(0 == IsConnectedServer())
-	{
-		res = IS_TIMEOUT(start, (15 * 1000 + 5));	//-- we will not wait, if not connect server in 15s --//
-		if (0 != res)
-		{
-			printf("%s:connected timeout!\n",__FUNCTION__);
-			break;
-		}
-		
-		Delay_ms(5);
-	}
-	
-	sleep(1);
 	
 	SendFWUpdateNotice(aisle, id, IsSingle);
 
@@ -708,7 +655,6 @@ int AsyncCmd_FWUpdate(int aisle, int id, int IsSingle)
 int AsyncCmd_Config(int aisle, int id, int IsSingle)
 {
 	int res = 0;
-	TIME start;
 					
 	if (0 == g_IsCommu) 				//-- avoid starting more --//
 	{
@@ -719,22 +665,6 @@ int AsyncCmd_Config(int aisle, int id, int IsSingle)
 	{
 		g_IsCommu++;
 	}
-	
-	GET_SYS_CURRENT_TIME(start);	//-- get a start time --//
-	
-	while(0 == IsConnectedServer())
-	{
-		res = IS_TIMEOUT(start, (15 * 1000 + 5));	//-- we will not wait, if not connect server in 15s --//
-		if (0 != res)
-		{
-			printf("%s:connected timeout!\n",__FUNCTION__);
-			break;
-		}
-		
-		Delay_ms(5);
-	}
-	
-	sleep(1);
 	
 	//--- send configuration information ---//
 	SendConfigData(aisle, id, IsSingle);						
@@ -784,7 +714,6 @@ int AsyncCmd_Config(int aisle, int id, int IsSingle)
 int AsyncCmd_Get(int aisle, int id, int IsSingle)
 {
 	int res = 0;
-	TIME start;
 					
 	if (0 == g_IsCommu) 				//-- avoid starting more --//
 	{
@@ -795,22 +724,6 @@ int AsyncCmd_Get(int aisle, int id, int IsSingle)
 	{
 		g_IsCommu++;
 	}
-	
-	GET_SYS_CURRENT_TIME(start);	//-- get a start time --//
-	
-	while(0 == IsConnectedServer())
-	{
-		res = IS_TIMEOUT(start, (15 * 1000 + 5));	//-- we will not wait, if not connect server in 15s --//
-		if (0 != res)
-		{
-			printf("%s:connected timeout!\n",__FUNCTION__);
-			break;
-		}
-		
-		Delay_ms(5);
-	}
-	
-	sleep(1);
 	
 	//--- send configuration information ---//
 	SendConfigData(aisle, id, IsSingle);						
@@ -851,7 +764,6 @@ int AsyncCmd_Get(int aisle, int id, int IsSingle)
 ***********************************************************************/
 int AsyncCmd_CurveDataSearch(int aisle, int id, int IsSingle)
 {
-	TIME start;
 	int res = 0;
 	
 	//--- connect server ---//					
@@ -864,22 +776,6 @@ int AsyncCmd_CurveDataSearch(int aisle, int id, int IsSingle)
 	{
 		g_IsCommu++;
 	}
-	
-	GET_SYS_CURRENT_TIME(start);	//-- get a start time --//
-	
-	while(0 == IsConnectedServer())
-	{
-		res = IS_TIMEOUT(start, (15 * 1000 + 5));	//-- we will not wait, if not connect server in 15s --//
-		if (0 != res)
-		{
-			printf("%s:connected timeout!\n",__FUNCTION__);
-			break;
-		}
-		
-		Delay_ms(5);
-	}
-	
-	sleep(1);
 	
 	//--- search status information ---//
 	SendCommonReqInfo(aisle, id, IsSingle, CURVE_DATA_TYPE);

@@ -7,7 +7,7 @@ First used			: /
 var net = require('net');
 
 /*
-Description			: use 'RemoteCMD'.
+Description			: use 'remote_cmd'.
 Default value		: /
 The scope of value	: /
 First used			: /
@@ -15,7 +15,7 @@ First used			: /
 var remoteCmd = require('./node_modules/remote_cmd');
 
 /*
-Description			: use 'CProcess'.
+Description			: use 'c_process'.
 Default value		: /
 The scope of value	: /
 First used			: /
@@ -23,7 +23,7 @@ First used			: /
 var cProcess = require('./node_modules/c_process');
 
 /*
-Description			: use 'OSInfo'.
+Description			: use 'os_info'.
 Default value		: /
 The scope of value	: /
 First used			: /

@@ -8,11 +8,8 @@
 #define IN_ADDR			struct in_addr
 #define SOCKADDR		struct sockaddr	
 
-#define INACTIVE_CLIENT		0x00
+#define CONNECTED_NO		0x00
 #define CONNECTED_YES		0x01
-#define CONNECTED_NO		0x02
-#define ACTIVATED_CLIENT 	0x04
-#define LOGOUT_CLIENT		0x10
 
 #define INVALID_FD	-1
 
@@ -38,12 +35,10 @@ typedef struct _CNetParameter
 
 //-------------------Declaration funciton for xxx--------------//
 
-extern int 		MyClientSocketInit(CNetParameter param);
-extern int 		ConnectServer(unsigned int timeout);
+extern int 		ConnectServer(unsigned int times, CNetParameter param);
 extern int 		RecDataFromServer(unsigned char *pBuff, unsigned int len);
 extern int 		SendDataToServer(unsigned char *pBuff, unsigned int len);
 extern void 	LogoutClient();
-extern int 		IsConnectedServer();
 
 //---------------------------end-------------------------------//
 

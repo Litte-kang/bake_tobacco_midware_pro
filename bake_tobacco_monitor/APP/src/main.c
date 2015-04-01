@@ -581,32 +581,14 @@ static void UploadBackData(void)
 		UPDATE_FW_ACK_BACKUP
 	};
 	int i = 0;
-	TIME start;
 	
-	if (0 == IsConnectedServer())
-	{
-		L_DEBUG("start a connection!\n");
-		
-		MyClientSocketInit(g_Param);
-		ConnectServer(CONNECT_TIMEOUT);
-	}
-		
-	if (0 == g_IsCommu)
-	{
-		GET_SYS_CURRENT_TIME(start);
-		
-		while (0 == IsConnectedServer())
-		{
-			if (IS_TIMEOUT(start, 15 * 1000))
-			{
-				break;
-			}
-			
-			Delay_ms(5);
-		}
-		
-		if(0 != IsConnectedServer())
-		{
+	L_DEBUG("start a connection!\n");
+	
+	if(0 == ConnectServer(CONNECT_TIMEOUT, g_Param))
+	{		
+		if (0 == g_IsCommu)
+		{		
+
 			for (i = 0; i < 4; ++i)
 			{
 				fp = fopen(file_names[i], "r");
@@ -615,24 +597,25 @@ static void UploadBackData(void)
 					do
 					{
 						fscanf(fp, "%s\n", upload_buf);
-			
+		
 						if (0 != upload_buf[0])
 						{
 							SendDataToServer(upload_buf, strlen(upload_buf));
 						}
-			
-					}while(!feof(fp));
 		
+					}while(!feof(fp));
+	
 					fclose(fp);
-			
+		
 					remove(file_names[i]);				
 				}
 			}	
-		}
+
 		
-		if (0 == g_IsCommu)
-		{
-			LogoutClient();	
+			if (0 == g_IsCommu)
+			{
+				LogoutClient();	
+			}
 		}
 	}	
 }
