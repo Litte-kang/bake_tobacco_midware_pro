@@ -34,6 +34,14 @@ First used			: \
 */
 unsigned char g_TmpLog[80] = {0};
 
+/*
+Description			: connect server parameter.
+Default value		: /
+The scope of value	: /
+First used			: AppInit();
+*/
+extern CNetParameter g_Param;
+
 //---------------------------end--------------------------//
 
 
@@ -473,7 +481,7 @@ int AsyncCmd_AlertSearch(int aisle, int id, int IsSingle)
 	if (0 == g_IsCommu) 				//-- avoid starting more --//
 	{
 		g_IsCommu++;
-		alarm(1);						//-- start connect --//					
+		ConnectServer(3, g_Param);			//-- start connect --//					
 	}
 	else
 	{
@@ -520,7 +528,7 @@ int AsyncCmd_StatusSearch(int aisle, int id, int IsSingle)
 	if (0 == g_IsCommu) 				//-- avoid starting more --//
 	{
 		g_IsCommu++;
-		alarm(1);						//-- start connect --//
+		ConnectServer(3, g_Param);						//-- start connect --//
 	}
 	else
 	{
@@ -613,7 +621,7 @@ int AsyncCmd_FWUpdate(int aisle, int id, int IsSingle)
 	if (0 == g_IsCommu) 				//-- avoid starting more --//
 	{
 		g_IsCommu++;
-		alarm(1);						//-- start connect --//			
+		ConnectServer(3, g_Param);						//-- start connect --//			
 	}
 	else
 	{
@@ -659,7 +667,7 @@ int AsyncCmd_Config(int aisle, int id, int IsSingle)
 	if (0 == g_IsCommu) 				//-- avoid starting more --//
 	{
 		g_IsCommu++;
-		alarm(1);						//-- start connect --//
+		ConnectServer(3, g_Param);						//-- start connect --//
 	}
 	else
 	{
@@ -718,12 +726,13 @@ int AsyncCmd_Get(int aisle, int id, int IsSingle)
 	if (0 == g_IsCommu) 				//-- avoid starting more --//
 	{
 		g_IsCommu++;
-		alarm(1);						//-- start connect --//
+		ConnectServer(3, g_Param);						//-- start connect --//
 	}
 	else
 	{
 		g_IsCommu++;
 	}
+	
 	
 	//--- send configuration information ---//
 	SendConfigData(aisle, id, IsSingle);						
@@ -770,7 +779,7 @@ int AsyncCmd_CurveDataSearch(int aisle, int id, int IsSingle)
 	if (0 == g_IsCommu) 				//-- avoid starting more --//
 	{
 		g_IsCommu++;
-		alarm(1);						//-- start connect --//
+		ConnectServer(3, g_Param);						//-- start connect --//
 	}
 	else
 	{

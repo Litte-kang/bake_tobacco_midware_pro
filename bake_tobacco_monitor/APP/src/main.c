@@ -55,7 +55,7 @@ static void 	SendUartData(int fd);
 static void 	RecUartData(int fd);
 static void 	TimerCallback(int SigNum);
 static void 	UploadBackData(void);
-static void 	ReadBackData(void);
+//static void 	ReadBackData(void);
 
 //--------------------Define variable for xxx------------------//
 
@@ -65,7 +65,7 @@ Default value		: /
 The scope of value	: /
 First used			: AppInit();
 */
-static CNetParameter g_Param = {0};
+CNetParameter g_Param = {0};
 
 /*
 Description			: server parameter.
@@ -581,14 +581,11 @@ static void UploadBackData(void)
 		UPDATE_FW_ACK_BACKUP
 	};
 	int i = 0;
-	
-	L_DEBUG("start a connection!\n");
-	
-	if(0 == ConnectServer(CONNECT_TIMEOUT, g_Param))
+		
+	if (0 == g_IsCommu)
 	{		
-		if (0 == g_IsCommu)
-		{		
-
+		if(0 == ConnectServer(CONNECT_TIMEOUT, g_Param))
+		{
 			for (i = 0; i < 4; ++i)
 			{
 				fp = fopen(file_names[i], "r");
@@ -597,21 +594,21 @@ static void UploadBackData(void)
 					do
 					{
 						fscanf(fp, "%s\n", upload_buf);
-		
+	
 						if (0 != upload_buf[0])
 						{
 							SendDataToServer(upload_buf, strlen(upload_buf));
 						}
-		
-					}while(!feof(fp));
 	
+					}while(!feof(fp));
+
 					fclose(fp);
-		
+	
 					remove(file_names[i]);				
 				}
 			}	
 
-		
+	
 			if (0 == g_IsCommu)
 			{
 				LogoutClient();	
