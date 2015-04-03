@@ -65,17 +65,30 @@ static int 		UploadAckToSer(int type, const char *pFileName, unsigned char *pDat
 ***********************************************************************/
 static int UploadAckToSer(int type, const char *pFileName, unsigned char *pData, unsigned int len)
 {
-	MyCustMadeJson json = {0};
 	unsigned char json_str[100] = {0};
+	int slave_address = 0;
 	int res = 0;
+	int i = 0;
 	
-	json.m_Type = type;
-	memcpy(json.m_Addr, g_MyLocalID, 10);
-	json.m_PData = pData;
-	json.m_DataLen = len;
+	slave_address = pData[0];
+	slave_address <<= 8;
+	slave_address |= pData[1];
 	
-	memset(json_str, 0, 100);
-	res = CustomMadeJson(json, json_str);
+	sprintf(json_str, "{\"midAddress\":\"%s\",\"type\":%d,\"address\":\"%.5d\",\"data\":[", g_MyLocalID, type, slave_address);
+	
+	res = strlen(json_str);
+	
+	len = len - 2;
+	
+	for (i = 0; i < len; ++i)
+	{
+		sprintf(&json_str[res + i],"%d,", pData[2 + i]);
+	}
+	
+	res = strlen(json_str);
+	
+	json_str[res - 1] = ']';
+	json_str[res] = '}';
 	
 	res = SendDataToServer(json_str, res);
 	if (0 != res)
