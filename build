@@ -18,8 +18,8 @@ then
 	make
 	sleep 1
 	cd ../OUT
-	echo "cp Bake_tobacco_Monitor ../../innotek_exec/c_processes/Bake_Tobacco_Monitor"
-	cp Bake_Tobacco_Monitor ../../innotek_exec/c_processes/Bake_Tobacco_Monitor/
+	echo "cp Bake_tobacco_Monitor ../../innotek_exec_00/c_processes/Bake_Tobacco_Monitor"
+	cp Bake_Tobacco_Monitor ../../innotek_exec_00/c_processes/Bake_Tobacco_Monitor/
 	break
 fi
 	
@@ -29,15 +29,15 @@ then
 	cd bake_tobacco_monitor/MakeFile/ 
 	make clean
 	cd ../../
-	echo "rm -f ./innotek_exec/c_processes/Bake_Tobacco_Monitor/Bake_Tobacco_Monitor"
-	rm -f ./innotek_exec/c_processes/Bake_Tobacco_Monitor/Bake_Tobacco_Monitor
+	echo "rm -f ./innotek_exec_00/c_processes/Bake_Tobacco_Monitor/Bake_Tobacco_Monitor"
+	rm -f ./innotek_exec_00/c_processes/Bake_Tobacco_Monitor/Bake_Tobacco_Monitor
 	break
 fi
 
 if [ 'run' == "$ARG1" ]
 then 
 	echo "run pro"
-	cd ./innotek_exec/c_processes/Bake_Tobacco_Monitor
+	cd ./innotek_exec_00/c_processes/Bake_Tobacco_Monitor
 	./Bake_Tobacco_Monitor &
 	sleep 2
 	cd ../../

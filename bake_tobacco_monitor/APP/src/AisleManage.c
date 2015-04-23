@@ -467,12 +467,12 @@ static int UploadDataToServer(const char *pFileName, unsigned char *pData, unsig
 				
 				tmp = 9;
 				
-				sprintf(upload_buff, "{\"midAddress\":\"%s\",\"type\":%d,\"address\":\"%.5d\",\"data\":[%d,[%d,%d,%d,%d,%d,%d,%d,%d,%d,%d],[%.1f,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f],[%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d]]}", 
-									g_MyLocalID, tmp, slave_addr, pData[9], 
+				sprintf(upload_buff, "{\"midAddress\":\"%s\",\"type\":%d,\"address\":\"%.5d\",\"data\":[%d,[%d,%d,%d,%d,%d,%d,%d,%d,%d,%d],[%.1f,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f],[%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d],%d]}", 
+									g_MyLocalID, tmp, slave_addr, ((pData[9] >> 3) == 20 ? 19 : (pData[9] >> 3)), 
 									pData[10], pData[11], pData[12], pData[13], pData[14], pData[15], pData[16], pData[17], pData[18], pData[19],
 									wet_value[0],wet_value[1],wet_value[2],wet_value[3],wet_value[4],wet_value[5],wet_value[6],wet_value[7],wet_value[8],wet_value[9],
 									pData[40],pData[41],pData[42],pData[43],pData[44],pData[45],pData[46],pData[47],pData[48],pData[49],pData[50],pData[51],pData[52],
-									pData[53],pData[54],pData[55],pData[56],pData[57],pData[58]);
+									pData[53],pData[54],pData[55],pData[56],pData[57],pData[58],(pData[9] & 0x07));
 			}		
 			break;
 		default:

@@ -75,14 +75,13 @@ static int UploadAckToSer(int type, const char *pFileName, unsigned char *pData,
 	slave_address |= pData[1];
 	
 	sprintf(json_str, "{\"midAddress\":\"%s\",\"type\":%d,\"address\":\"%.5d\",\"data\":[", g_MyLocalID, type, slave_address);
-	
-	res = strlen(json_str);
-	
+		
 	len = len - 2;
 	
 	for (i = 0; i < len; ++i)
 	{
-		sprintf(&json_str[res + i],"%d,", pData[2 + i]);
+		res = strlen(json_str);
+		sprintf(&json_str[res],"%d,", pData[2 + i]);
 	}
 	
 	res = strlen(json_str);
@@ -90,7 +89,7 @@ static int UploadAckToSer(int type, const char *pFileName, unsigned char *pData,
 	json_str[res - 1] = ']';
 	json_str[res] = '}';
 	
-	res = SendDataToServer(json_str, res);
+	res = SendDataToServer(json_str, (res + 1));
 	if (0 != res)
 	{
 		BackupAsciiData(pFileName, json_str);

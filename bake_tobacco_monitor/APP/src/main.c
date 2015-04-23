@@ -476,41 +476,52 @@ static void* IdleThrd(void *pArg)
 	{
 #if 0	
 		L_DEBUG("SEND STATE SIMULATION DATA!\n");
-		alarm(1);
-		while (0 == IsConnectedServer())
-		{
-			Delay_ms(5);
-		}
-		
-		sprintf(addr_buffer, "{\"midAddress\":\"0000000001\",\"type\":0,\"address\":\"00036\",\"data\":[0,0,0,0,1,90,1,90]}");	
-		SendDataToServer(addr_buffer, strlen(addr_buffer));	
-		sleep(1);
+
+		if(0 == ConnectServer(CONNECT_TIMEOUT, g_Param))
+		{		
+			sprintf(addr_buffer, "{\"midAddress\":\"0000000000\",\"type\":0,\"address\":\"00401\",\"data\":[0,0,0,0,1,90,1,90]}");	
+			SendDataToServer(addr_buffer, strlen(addr_buffer));	
+			sleep(1);
 	
-		sprintf(addr_buffer, "{\"midAddress\":\"0000000001\",\"type\":0,\"address\":\"00100\",\"data\":[0,0,0,0,2,26,2,26]}");	
-		SendDataToServer(addr_buffer, strlen(addr_buffer));	
-		sleep(1);
-		LogoutClient();
-		
+			sprintf(addr_buffer, "{\"midAddress\":\"0000000000\",\"type\":0,\"address\":\"00402\",\"data\":[0,0,0,0,2,26,2,26]}");	
+			SendDataToServer(addr_buffer, strlen(addr_buffer));	
+			sleep(1);
+			LogoutClient();
+		}
 		//-----------------------------------------------//
 		
 		sleep(1*60);
-		alarm(1);	
+
 		L_DEBUG("SEND ALERT SIMULATION DATA!\n");
-		while (0 == IsConnectedServer())
+		if(0 == ConnectServer(CONNECT_TIMEOUT, g_Param))
 		{
-			Delay_ms(5);
-		}
 		
-		sprintf(addr_buffer, "{\"midAddress\":\"0000000001\",\"type\":2,\"address\":\"00036\",\"isBelow\":0,\"data\":[1,90,1,90,1,90,1,90,0,20,0]}");	
-		SendDataToServer(addr_buffer, strlen(addr_buffer));	
-		sleep(1);
+			sprintf(addr_buffer, "{\"midAddress\":\"0000000000\",\"type\":2,\"address\":\"00401\",\"isBelow\":0,\"data\":[1,90,1,90,1,90,1,90,0,20,0]}");	
+			SendDataToServer(addr_buffer, strlen(addr_buffer));	
+			sleep(1);
 	
-		sprintf(addr_buffer, "{\"midAddress\":\"0000000001\",\"type\":2,\"address\":\"00100\",\"isBelow\":0,\"data\":[2,26,2,26,2,26,2,26,0,20,0]}");	
-		SendDataToServer(addr_buffer, strlen(addr_buffer));	
-		sleep(1);
+			sprintf(addr_buffer, "{\"midAddress\":\"0000000000\",\"type\":2,\"address\":\"00402\",\"isBelow\":0,\"data\":[2,26,2,26,2,26,2,26,0,20,0]}");	
+			SendDataToServer(addr_buffer, strlen(addr_buffer));	
+			sleep(1);
 				
-		LogoutClient();
-		
+			LogoutClient();
+		}
+
+		sleep(1*60);
+
+		L_DEBUG("SEND CURVE SIMULATION DATA!\n");
+		if(0 == ConnectServer(CONNECT_TIMEOUT, g_Param))
+		{		
+			sprintf(addr_buffer, "{\"midAddress\":\"0000000000\",\"type\":9,\"address\":\"00401\",\"data\":[1,[36,38,40,42,46,48,50,54,60,68],[34,36,37,37.5,38,38,39,40,42],[2,2,15,4,2,4,2,8,4,4,2,4,2,5,5,6,2,8,12],0]}");	
+			SendDataToServer(addr_buffer, strlen(addr_buffer));	
+			sleep(1);
+	
+			sprintf(addr_buffer, "{\"midAddress\":\"0000000000\",\"type\":9,\"address\":\"00402\",\"data\":[1,[36,38,40,42,46,48,50,54,60,68],[34,36,37,37.5,38,38,39,40,42],[2,2,15,4,2,4,2,8,4,4,2,4,2,5,5,6,2,8,12],0]}");
+			SendDataToServer(addr_buffer, strlen(addr_buffer));	
+			sleep(1);
+				
+			LogoutClient();	
+		}	
 #endif	
 		sleep(2*60);
 	}
