@@ -326,7 +326,7 @@ static void SendFWUpdateNotice(int aisle, int id, int IsSingle)
 {
 	unsigned int slave_sum = 0;
 	unsigned int position = 0;
-	unsigned char data[2 + SLAVE_ADDR_LEN] = {0};
+	unsigned char data[1 + SLAVE_ADDR_LEN] = {0};
 	unsigned char notice[9 + SLAVE_ADDR_LEN] = {0};
 	unsigned char send_again_notice[5 + SLAVE_ADDR_LEN] = {0};
 	unsigned char address[SLAVE_ADDR_LEN] = {0};
@@ -336,9 +336,7 @@ static void SendFWUpdateNotice(int aisle, int id, int IsSingle)
 	unsigned int counter = 0;
 	TIME start;
 	TIME start1;
-	
-	data[SLAVE_ADDR_LEN] = 0; //-- fw type --//
-	
+		
 	//--- get slaver sum and start position on aisle ---//	
 	if (1 == IsSingle)
 	{
@@ -392,7 +390,7 @@ static void SendFWUpdateNotice(int aisle, int id, int IsSingle)
 		
 		memcpy(&notice[3], address, SLAVE_ADDR_LEN);	//-- fill slave address --//
 		memcpy(data, address, SLAVE_ADDR_LEN);			
-		data[SLAVE_ADDR_LEN + 1] = 1; //-- default update ok! --//
+		data[SLAVE_ADDR_LEN] = 1; //-- default update ok! --//
 		
 		SetAisleFlag(aisle, PRO_FW_UPDATE_FLAG);		//-- allow processing update ack data from slave --//
 
@@ -408,7 +406,7 @@ static void SendFWUpdateNotice(int aisle, int id, int IsSingle)
 			{
 				send_again_counter = 6;
 				printf("%s:%.5d update timeout!\n",__FUNCTION__,((int)(address[0] << 8) | address[1]));
-				data[SLAVE_ADDR_LEN + 1] = 0;
+				data[SLAVE_ADDR_LEN] = 0;
 				break;
 			}
 			else if (fw_count != GetCurFwCount(aisle))
@@ -457,7 +455,7 @@ static void SendFWUpdateNotice(int aisle, int id, int IsSingle)
 		}
 		
 		//--- tell server what we have updated a machine ---//
-		res = UploadAckToSer(5, UPDATE_FW_ACK_BACKUP, data, (2 + SLAVE_ADDR_LEN));
+		res = UploadAckToSer(5, UPDATE_FW_ACK_BACKUP, data, (1 + SLAVE_ADDR_LEN));
 		//--- end ---//	
 		
 		COUNTER(6, send_again_counter);

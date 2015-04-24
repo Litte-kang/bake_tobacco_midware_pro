@@ -205,7 +205,7 @@ function timeoutCallback()
 		json.data[5] = info.cpuModel;
 		json.data[6] = info.uptime;
 		
-		console.log(date + " CONNECTED:" + SER_IP + ":" + PORT[1]);
+		console.log(date + " CONNECTED:" + SER_IP + ":" + PORT[0]);
 		console.log("UPLOAD MID ID", MIDWARE_ID);
 		
 		fs.readFile('/tmp/startup', function(err, chunk){
