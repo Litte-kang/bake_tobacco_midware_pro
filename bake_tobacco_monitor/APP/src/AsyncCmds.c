@@ -66,6 +66,14 @@ First used			: AsyncCmdsInit
 */
 const AsyncCmd *g_PCurAsyncCmd = NULL;
 
+/*
+Description			: to force end a cmd to run a high priority cmd.
+Default value		: 0.
+The scope of value	: /
+First used			: /
+*/
+char g_IsForceEndCurCmd = 0;
+
 //---------------------------end--------------------------//
 
 
@@ -152,7 +160,7 @@ static void* ReadAsyncCmdsThrd(void *pArg)
 	
 	while (1)
 	{
-		if (0 < g_CurAsyncCmdsSum && IDLE_ASYNC_CMD == g_CurAsyncCmd.m_Cmd)
+		if (0 < g_CurAsyncCmdsSum && IDLE_ASYNC_CMD == g_CurAsyncCmd.m_Cmd && 0 == g_IsForceEndCurCmd)
 		{			
 			g_CurAsyncCmd.m_Cmd = g_AsyncCmds[g_CurReadPos].m_Cmd;
 			g_CurAsyncCmd.m_Flag = g_AsyncCmds[g_CurReadPos].m_Flag;
@@ -181,8 +189,25 @@ static void* ReadAsyncCmdsThrd(void *pArg)
 ***********************************************************************/
 int AddAsyncCmd(const unsigned char cmd, const unsigned char flag)
 {
+	
 	if (MAX_ASYNC_CMD_SUM > g_CurAsyncCmdsSum)
-	{
+	{		
+		if ((REMOTE_CMD_FLAG & flag))
+		{							
+			while (IDLE_ASYNC_CMD != g_CurAsyncCmd.m_Cmd)
+			{
+				MyDelay_ms(5);
+			}
+			
+			g_CurAsyncCmd.m_Cmd = cmd;
+			g_CurAsyncCmd.m_Flag = flag;
+						
+			L_DEBUG("-------remote cmd flag-------\n");
+			
+			return 0;
+			
+		}
+
 		g_AsyncCmds[g_CurWritePos].m_Cmd = cmd;
 		g_AsyncCmds[g_CurWritePos].m_Flag = flag;
 		

@@ -117,21 +117,7 @@ static void SendCommonReqInfo(int aisle, int id, int IsSingle, unsigned char typ
 	unsigned int counter = 0;
 	unsigned char address[SLAVE_ADDR_LEN] = {0};
 	TIME start;
-	
-	switch (type)
-	{
-		case ALERT_DATA_TYPE:		//-- rec bytes less 30 --//
-		case STATUS_DATA_TYPE:
-		case RESTART_SLAVE_DATA_TYPE:
-			timeout = 2;
-			break;
-		case CURVE_DATA_TYPE:		//-- rec bytes more 30 --//
-			timeout = 4;
-			break;
-		default:
-			return;
-	}
-	
+		
 	//--- get slaver sum and start position on aisle ---//
 	if (1 == IsSingle)
 	{
@@ -161,8 +147,11 @@ static void SendCommonReqInfo(int aisle, int id, int IsSingle, unsigned char typ
 		
 		address[0] = (unsigned char)(res >> 8);
 		address[1] = (unsigned char)res;
-			
-		SendCommunicationRequest(aisle, address, type);
+		
+		if (1 != g_IsForceEndCurCmd)	
+		{
+			SendCommunicationRequest(aisle, address, type);			
+		}
 				
 		GET_SYS_CURRENT_TIME(start);
 		
@@ -170,10 +159,16 @@ static void SendCommonReqInfo(int aisle, int id, int IsSingle, unsigned char typ
 		{	
 			Delay_ms(5);
 			
+			if (1 == g_IsForceEndCurCmd)
+			{
+				L_DEBUG("force end cur cmd\n");
+				break;
+			}
+			
 			if (NULL_DATA_FLAG == GetAisleFlag(aisle))
 			{
 
-				res = IS_TIMEOUT(start, (timeout * 1000 + 5));	//-- we will send notice again slave, if not receive ack in (timeout)s --//
+				res = IS_TIMEOUT(start, (1000));	//-- we will send notice again slave, if not receive ack in (2)s --//
 				if (0 != res)
 				{
 					printf("%s:receive %.5d req(%d) ack timeout!\n", __FUNCTION__,((int)(address[0] << 8) | address[1]), type);
@@ -196,10 +191,15 @@ static void SendCommonReqInfo(int aisle, int id, int IsSingle, unsigned char typ
 				break;	//-- receive ack --//
 			}
 					
-		}while(4 > send_again_counter);  //-- we will notice next slave, if we have sent 4 times --//
-				
+		}while(3 > send_again_counter);  //-- we will notice next slave, if we have sent 4 times --//
+
+		if (1 == g_IsForceEndCurCmd)
+		{
+			break;
+		}
+							
 		position++;
-		COUNTER(4, send_again_counter);
+		COUNTER(3, send_again_counter);
 		send_again_counter = 0;	
 		SetAisleFlag(aisle, NULL_DATA_FLAG);
 	}
@@ -259,18 +259,28 @@ static void SendConfigData(int aisle, int id, int IsSingle)
 		address[0] = (unsigned char)(res >> 8);
 		address[1] = (unsigned char)res;
 		
-		memcpy(data, address, SLAVE_ADDR_LEN);		
-		SendConfigration(aisle, address, g_RemoteData.m_Type, &g_RemoteData.m_PData[2], (g_RemoteData.m_DataLen - 2));
-				
+		memcpy(data, address, SLAVE_ADDR_LEN);	
+		
+		if (1 != g_IsForceEndCurCmd)
+		{	
+			SendConfigration(aisle, address, g_RemoteData.m_Type, &g_RemoteData.m_PData[2], (g_RemoteData.m_DataLen - 2));
+		}
+			
 		GET_SYS_CURRENT_TIME(start);
 		
 		do
 		{
-			Delay_ms(5);	
+			Delay_ms(5);
+			
+			if (1 == g_IsForceEndCurCmd)
+			{
+				L_DEBUG("force end cur cmd\n");
+				break;
+			}	
 			
 			if (NULL_DATA_FLAG == GetAisleFlag(aisle))
 			{
-				res = IS_TIMEOUT(start, (4 * 1000 + 5));	//-- we will send request again slave, if not receive ack in 5s --//
+				res = IS_TIMEOUT(start, (1000));	//-- we will send request again slave, if not receive ack in 5s --//
 				if (0 != res)
 				{
 					printf("%s:receive %.5d conf ack timeout!\n", __FUNCTION__, ((int)(address[0] << 8) | address[1]));
@@ -296,15 +306,20 @@ static void SendConfigData(int aisle, int id, int IsSingle)
 				break;	//-- receive ack --//
 			}
 				
-		}while(4 > send_again_counter);  //-- we will notice next slave, if we have sent 3 times --//
-		
+		}while(3 > send_again_counter);  //-- we will notice next slave, if we have sent 3 times --//
+
+		if (1 == g_IsForceEndCurCmd)
+		{
+			break;
+		}
+					
 		//--- tell server what we modify ok ---//
 		res = UploadAckToSer(g_RemoteData.m_Type, CONF_DATA_ACK_BACKUP, data, (1 + SLAVE_ADDR_LEN));
 		//--- end ---//	
 		
 		SetAisleFlag(aisle, NULL_DATA_FLAG);
 		position++;
-		COUNTER(4, send_again_counter);
+		COUNTER(3, send_again_counter);
 		send_again_counter = 0;
 	}
 
@@ -653,8 +668,12 @@ int AsyncCmd_FWUpdate(int aisle, int id, int IsSingle)
 		Delay_ms(5);
 	}
 	
-	AddAsyncCmd('R', REMOTE_CMD_FLAG); //-- we restart slave --//
+	g_IsForceEndCurCmd = 1;
+	
 	ClearCurAsynCmd();
+	AddAsyncCmd('R', (REMOTE_CMD_FLAG | INNER_CMD_FLAG)); //-- we restart slave --//
+	
+	g_IsForceEndCurCmd = 0;
 
 	L_DEBUG("====================================================\n");
 	L_DEBUG("              all aisle finish task                 \n");	
@@ -698,7 +717,19 @@ int AsyncCmd_Config(int aisle, int id, int IsSingle)
 		{
 			if (REMOTE_CMD_CONFIG_SLAVE_CURVE == g_RemoteData.m_Type)
 			{
-				AddAsyncCmd('c', NULL_FLAG); //-- we have finished setting curve of slaves and we would search curve of slaves --//
+			
+				g_IsForceEndCurCmd = 1;
+				
+				ClearCurAsynCmd();				
+				AddAsyncCmd('c', (REMOTE_CMD_FLAG | INNER_CMD_FLAG)); //-- we have finished setting curve of slaves and we would search curve of slaves --//
+				
+				g_IsForceEndCurCmd = 0;
+				
+				L_DEBUG("====================================================\n");
+				L_DEBUG("              all aisle finish task                 \n");	
+				L_DEBUG("====================================================\n");	
+				
+				return 0;
 			}
 			else
 			{

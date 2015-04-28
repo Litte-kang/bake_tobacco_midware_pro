@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 #include "xProtocol.h"
 #include "uart_api.h"
 

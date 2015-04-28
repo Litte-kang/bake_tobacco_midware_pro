@@ -250,7 +250,9 @@ static void SendUartData(int fd)
 		{
 			id = (int)(g_RemoteData.m_Addr[0] << 8);
 			id |= (int)g_RemoteData.m_Addr[1];
-		}
+		}	
+		
+		//L_DEBUG("cur cmd = %c\n",g_PCurAsyncCmd->m_Cmd);			
 						
 		switch (g_PCurAsyncCmd->m_Cmd)
 		{
@@ -290,7 +292,7 @@ static void SendUartData(int fd)
 				}
 				break;
 			default:
-				sleep(1);
+				Delay_ms(50);
 				break;
 		}	
 	}
@@ -561,7 +563,7 @@ static void TimerCallback(int SigNum)
 			{
 				if (0 == (minute % async_cmd_start_interval[i][0]))
 				{
-					AddAsyncCmd(async_cmd_start_interval[i][1], NULL_FLAG);
+					AddAsyncCmd(async_cmd_start_interval[i][1], INNER_CMD_FLAG);
 				}
 			}
 		}

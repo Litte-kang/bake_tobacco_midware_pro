@@ -10,7 +10,7 @@ new_ver=`echo $new_ver | awk '{print $1}'`
 echo $new_ver
 echo $cur_ver
 
-if [ "$new_ver" -ge "$cur_ver" ]
+if [ "$new_ver" -gt "$cur_ver" ]
 then
 	echo "update mid fw"
 	

@@ -94,6 +94,14 @@ First used			: /
 */
 var intervalObj;
 
+/*
+Description			: we upload middleware base information when counter00 is 360.
+Default value		: /
+The scope of value	: /
+First used			: /
+*/
+var counter00 = 0;
+
 /*******************************************
 * start Bake_Tobacco_Monitor
 ********************************************/
@@ -163,7 +171,7 @@ fs.open("./conf/mid_id", "r", function(err, fd){
 			
 			///*
 			//--- send mid id to remote server. ---//
-			intervalObj = setInterval(timeoutCallback, (60*1000));
+			intervalObj = setInterval(timeoutCallback, (1000));
 			//*/					
 		}
 		else
@@ -182,7 +190,9 @@ function timeoutCallback()
 {
 	var clientSocket = new net.Socket();
 	var cmdData = '';
-			
+	
+	//counter00++;
+		
 	clearInterval(intervalObj);
 	
 	clientSocket.connect(PORT[0], SER_IP, function(){
@@ -194,59 +204,61 @@ function timeoutCallback()
 			data:[0,0,0,0,0,0,0,0,0]
 		};
 		var info;
-						
-		info = osInfo.getOSInfo();
 		
-		json.data[0] = info.totallMem;
-		json.data[1] = info.usedMem;
-		json.data[2] = info.cpusRate;
-		json.data[3] = info.arch;
-		json.data[4] = info.osPlatform;
-		json.data[5] = info.cpuModel;
-		json.data[6] = info.uptime;
+		if (0 == counter00)
+		{		
+			counter00 = 0;
+				
+			info = osInfo.getOSInfo();
 		
-		console.log(date + " CONNECTED:" + SER_IP + ":" + PORT[0]);
-		console.log("UPLOAD MID ID", MIDWARE_ID);
-		
-		fs.readFile('/tmp/startup', function(err, chunk){
+			json.data[0] = info.totallMem;
+			json.data[1] = info.usedMem;
+			json.data[2] = info.cpusRate;
+			json.data[3] = info.arch;
+			json.data[4] = info.osPlatform;
+			json.data[5] = info.cpuModel;
+			json.data[6] = info.uptime;
+				
+			fs.readFile('/tmp/startup', function(err, chunk){
 
-			var hwc = spawn("hwclock", []);
-			var startup = "null0";
-			var curHwc;
+				var hwc = spawn("hwclock", []);
+				var startup = "null0";
+				var curHwc;
 			
-			if (err)
-			{
-				startup = "null0";
-			}
-			else
-			{
-				startup = chunk.toString();
-			}
-			
-			startup = startup.substring(0, (startup.length - 1));
-
-			json.data[7] = startup;
-
-			hwc.stdout.once('data', function(chunk){
-
-				curHwc = chunk.toString();
-				curHwc = curHwc.substring(0, (curHwc.length - 1));
-
-				json.data[8] = curHwc;
-			});
-
-			hwc.once('close', function(err){
-
 				if (err)
 				{
-					return console.error(err);
+					startup = "null0";
 				}
 				else
 				{
-					clientSocket.write(JSON.stringify(json));			
+					startup = chunk.toString();
 				}
-			});
-		});
+			
+				startup = startup.substring(0, (startup.length - 1));
+
+				json.data[7] = startup;
+
+				hwc.stdout.once('data', function(chunk){
+
+					curHwc = chunk.toString();
+					curHwc = curHwc.substring(0, (curHwc.length - 1));
+
+					json.data[8] = curHwc;
+				});
+
+				hwc.once('close', function(err){
+
+					if (err)
+					{
+						return console.error(err);
+					}
+					else
+					{
+						clientSocket.write(JSON.stringify(json));			
+					}
+				});
+			}); //--- end of fs.readFile('/tmp/startup', function(err, chunk) ---//
+		} //--- end of if (0 == counter00) ---//
 						
 	}); //--- end of clientSocket.connect(PORT[1], SER_IP, function() ---//
 	
@@ -313,7 +325,7 @@ function timeoutCallback()
 		
 		clientSocket.removeAllListeners();
 		
-		intervalObj = setInterval(timeoutCallback, (60*1000));
+		intervalObj = setInterval(timeoutCallback, (1000));
 		
 	});	
 }

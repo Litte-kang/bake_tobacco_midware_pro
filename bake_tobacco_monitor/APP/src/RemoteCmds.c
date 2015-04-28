@@ -126,7 +126,8 @@ static int GetFWInfo(int FWType)
 ***********************************************************************/
 static void SameHandle(unsigned char HandleType, MyCustMadeJson CMDInfo)
 {	
-
+	int addr = 0;
+	
 	while (INVAILD_CUST_MADE_JSON != g_RemoteData.m_Type)				//-- we just handle a remote cmd at the same time --//
 	{
 		Delay_ms(5);
@@ -135,12 +136,22 @@ static void SameHandle(unsigned char HandleType, MyCustMadeJson CMDInfo)
 	g_RemoteData.m_Type = CMDInfo.m_Type;								//-- cmd type --//
 	
 	memcpy(g_RemoteData.m_Addr, CMDInfo.m_PData, 2);					//-- slave id --//
+	
+	addr = g_RemoteData.m_Addr[0];
+	addr <<= 8;
+	addr |= g_RemoteData.m_Addr[1];
+	
+	L_DEBUG("-----%.5d------\n", addr);
 								
 	memcpy(g_RemoteData.m_PData, CMDInfo.m_PData, CMDInfo.m_DataLen);	//-- cmd data --//
 
 	g_RemoteData.m_DataLen = CMDInfo.m_DataLen;							//-- data len --//
 	
+	g_IsForceEndCurCmd = 1;
+	
 	AddAsyncCmd(HandleType, REMOTE_CMD_FLAG);
+	
+	g_IsForceEndCurCmd = 0;
 	
 }
 
