@@ -193,7 +193,14 @@ int AddAsyncCmd(const unsigned char cmd, const unsigned char flag)
 	if (MAX_ASYNC_CMD_SUM > g_CurAsyncCmdsSum)
 	{		
 		if ((REMOTE_CMD_FLAG & flag))
-		{							
+		{		
+			g_IsForceEndCurCmd = 1;
+			
+			if (INNER_CMD_FLAG & flag)
+			{
+				ClearCurAsynCmd();
+			}
+								
 			while (IDLE_ASYNC_CMD != g_CurAsyncCmd.m_Cmd)
 			{
 				MyDelay_ms(5);
@@ -201,8 +208,8 @@ int AddAsyncCmd(const unsigned char cmd, const unsigned char flag)
 			
 			g_CurAsyncCmd.m_Cmd = cmd;
 			g_CurAsyncCmd.m_Flag = flag;
-						
-			L_DEBUG("-------remote cmd flag-------\n");
+			
+			g_IsForceEndCurCmd = 0;
 			
 			return 0;
 			

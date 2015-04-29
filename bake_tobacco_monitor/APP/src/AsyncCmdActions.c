@@ -201,7 +201,7 @@ static void SendCommonReqInfo(int aisle, int id, int IsSingle, unsigned char typ
 		position++;
 		COUNTER(3, send_again_counter);
 		send_again_counter = 0;	
-		SetAisleFlag(aisle, NULL_DATA_FLAG);
+		SetAisleFlag(aisle, NULL_DATA_FLAG);		
 	}
 
 	SetCurSlavePositionOnTab(aisle, 0);
@@ -667,13 +667,8 @@ int AsyncCmd_FWUpdate(int aisle, int id, int IsSingle)
 	{
 		Delay_ms(5);
 	}
-	
-	g_IsForceEndCurCmd = 1;
-	
-	ClearCurAsynCmd();
+		
 	AddAsyncCmd('R', (REMOTE_CMD_FLAG | INNER_CMD_FLAG)); //-- we restart slave --//
-	
-	g_IsForceEndCurCmd = 0;
 
 	L_DEBUG("====================================================\n");
 	L_DEBUG("              all aisle finish task                 \n");	
@@ -715,16 +710,10 @@ int AsyncCmd_Config(int aisle, int id, int IsSingle)
 		
 		if (REMOTE_CMD_FLAG == (REMOTE_CMD_FLAG & g_PCurAsyncCmd->m_Flag))
 		{
-			if (REMOTE_CMD_CONFIG_SLAVE_CURVE == g_RemoteData.m_Type)
-			{
-			
-				g_IsForceEndCurCmd = 1;
-				
-				ClearCurAsynCmd();				
+			if (REMOTE_CMD_CONFIG_SLAVE_CURVE == g_RemoteData.m_Type || REMOTE_CMD_CONFIG_SLAVE_STAGE == g_RemoteData.m_Type)
+			{			
 				AddAsyncCmd('c', (REMOTE_CMD_FLAG | INNER_CMD_FLAG)); //-- we have finished setting curve of slaves and we would search curve of slaves --//
-				
-				g_IsForceEndCurCmd = 0;
-				
+								
 				L_DEBUG("====================================================\n");
 				L_DEBUG("              all aisle finish task                 \n");	
 				L_DEBUG("====================================================\n");	
@@ -837,8 +826,8 @@ int AsyncCmd_CurveDataSearch(int aisle, int id, int IsSingle)
 	{		
 		LogoutClient();	
 		
-		if (REMOTE_CMD_CONFIG_SLAVE_CURVE == g_RemoteData.m_Type)
-		{
+		if (REMOTE_CMD_FLAG == (REMOTE_CMD_FLAG & g_PCurAsyncCmd->m_Flag))
+		{	
 			RemoteCMD_Init();
 		}						
 	}

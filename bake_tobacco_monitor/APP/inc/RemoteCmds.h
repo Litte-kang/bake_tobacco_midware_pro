@@ -11,6 +11,7 @@
 #define REMOTE_CMD_CONFIG_SLAVE_TOBA_SIZE	13
 #define REMOTE_CMD_CONFIG_SLAVE_TIME		14
 #define REMOTE_CMD_SET_SLAVE_ADDR_TAB		15
+#define REMOTE_CMD_CONFIG_SLAVE_STAGE		16
 
 //---------------------------end---------------------------//
 
