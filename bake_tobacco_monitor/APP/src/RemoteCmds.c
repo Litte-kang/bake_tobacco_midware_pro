@@ -42,8 +42,6 @@ MyCustMadeJson g_RemoteData = {0};
 
 static int 		GetFWInfo(int FWType);
 static void 	SameHandle(unsigned char HandleType, MyCustMadeJson CMDInfo);
-static void		IncSlave(MyCustMadeJson CMDInfo);
-static void		DecSlave(MyCustMadeJson CMDInfo);
 static int 		RemoteCMD_NewFWNotice(int fd, MyCustMadeJson CMDInfo);
 static int 		RemoteCMD_ConfigSlave(int fd, MyCustMadeJson CMDInfo);
 static int 		RemoteCMD_SearchStatus(int fd, MyCustMadeJson CMDInfo);
@@ -144,148 +142,13 @@ static void SameHandle(unsigned char HandleType, MyCustMadeJson CMDInfo)
 }
 
 /***********************************************************************
-**Function Name	: IncSlave
-**Description	: increase slave addresses to slave address table. 
-**Parameter		: CMDInfo - in.
-**Return		: none.
-***********************************************************************/
-static void	IncSlave(MyCustMadeJson CMDInfo)
-{
-	FILE *fp = NULL;
-	int i = 0;
-	int pos = 2;
-	int slave_sum = 0;
-	int sum = 0;
-	int aisle = 0;
-	int res = 0;
-	unsigned char address[SLAVE_ADDR_LEN] = {0};
-	unsigned char slaves_addr_path[38] = {0};
-	
-	i = CMDInfo.m_PData[CMDInfo.m_DataLen - 1];
-	aisle = g_UartFDS[i];
-	
-	slave_sum = GetSlaveSumOnAisle(aisle);
-	
-	if (MAX_SLAVE_SUM == slave_sum)
-	{
-		printf("%s:no space for new slave reg!\n",__FUNCTION__);
-		return;
-	}
-
-	sprintf(slaves_addr_path, "%s%.2d", SLAVES_ADDR_CONF, i);
-
-	fp = fopen(slaves_addr_path, "a");
-	
-	if (NULL == fp)
-	{
-		printf("%s:open %s failed!\n", __FUNCTION__, slaves_addr_path);
-		return;
-	}
-	
-	sum = CMDInfo.m_PData[1];
-			
-	while (sum--)
-	{
-		for (i = 0; i < slave_sum; ++i)
-		{
-			res = GetSlaveAddrByPos(i, aisle);
-			
-			address[0] = (unsigned char)(res >> 8);
-			address[1] = (unsigned char)res;
-			
-			if (0 == memcmp(address ,&CMDInfo.m_PData[pos], SLAVE_ADDR_LEN))	//-- new slave was registered --//
-			{
-				printf("%s:slave(%.5d) was registered!\n",__FUNCTION__,res);								
-				break;
-			}
-		}
-	
-		if (i == slave_sum) //-- new slave was not registered --//
-		{
-			
-			i = (int)(CMDInfo.m_PData[pos] << 8);
-			i |= (int)CMDInfo.m_PData[pos + 1];
-					
-			fprintf(fp, "%.5d\n", i);		
-		}
-		
-		pos += 2;
-	}	
-				
-	fclose(fp);
-}
-
-/***********************************************************************
-**Function Name	: DecSlave
-**Description	: decrease slave addresses from slave address table. 
-**Parameter		: CMDInfo - in.
-**Return		: none.
-***********************************************************************/
-static void	DecSlave(MyCustMadeJson CMDInfo)
-{
-	FILE *fp = NULL;
-	int slave_sum = 0;
-	int pos = 2;
-	int sum = 0;
-	int i = 0;
-	int aisle = 0;
-	int res = 0;
-	unsigned char address[SLAVE_ADDR_LEN] = {0};
-	unsigned char slaves_addr_path[38] = {0};
-	
-	i = CMDInfo.m_PData[CMDInfo.m_DataLen - 1];
-	aisle = g_UartFDS[i];
-	
-	slave_sum = GetSlaveSumOnAisle(aisle);
-	
-	if (0 == slave_sum)
-	{
-		printf("%s:no slave address\n", __FUNCTION__);
-		return;
-	}
-	
-	sprintf(slaves_addr_path, "%s%.2d", SLAVES_ADDR_CONF, i);
-	
-	fp = fopen(slaves_addr_path, "w");
-	
-	if (NULL == fp)
-	{
-		printf("%s:open %s failed!\n", __FUNCTION__, slaves_addr_path);
-		return;
-	}
-	
-	for (i = 0; i < slave_sum; ++i)
-	{
-		sum = CMDInfo.m_PData[1];
-		pos = 2;
-		
-		while (sum--)
-		{	
-			res = GetSlaveAddrByPos(i, aisle);
-			
-			address[0] = (unsigned char)(res >> 8);
-			address[1] = (unsigned char)res;
-			
-			if (0 != memcmp(address ,&CMDInfo.m_PData[pos], SLAVE_ADDR_LEN))
-			{
-				fprintf(fp, "%.5d\n", res);
-			}
-			
-			pos += 2;
-		}
-	}
-	
-	fclose(fp);
-}
-
-/***********************************************************************
 **Function Name	: RemoteCMD_NewFWNotice
 **Description	: notice middleware to update slave.
 **Parameters	: fd - in.
 				: CMDInfo - in.
 **Return		: 0
 ***********************************************************************/
-static RemoteCMD_NewFWNotice(int fd, MyCustMadeJson CMDInfo)
+static int RemoteCMD_NewFWNotice(int fd, MyCustMadeJson CMDInfo)
 {
 	int res = 0;
 	MyCustMadeJson json = {0};
@@ -310,7 +173,7 @@ static RemoteCMD_NewFWNotice(int fd, MyCustMadeJson CMDInfo)
 				: CMDInfo - in.
 **Return		: 0
 ***********************************************************************/
-static RemoteCMD_ConfigSlave(int fd, MyCustMadeJson CMDInfo)
+static int RemoteCMD_ConfigSlave(int fd, MyCustMadeJson CMDInfo)
 {
 	
 	SameHandle('P', CMDInfo);
@@ -325,7 +188,7 @@ static RemoteCMD_ConfigSlave(int fd, MyCustMadeJson CMDInfo)
 				: CMDInfo - in.
 **Return		: 0
 ***********************************************************************/
-static RemoteCMD_SearchStatus(int fd, MyCustMadeJson CMDInfo)
+static int RemoteCMD_SearchStatus(int fd, MyCustMadeJson CMDInfo)
 {
 
 	SameHandle('S', CMDInfo);
@@ -340,37 +203,10 @@ static RemoteCMD_SearchStatus(int fd, MyCustMadeJson CMDInfo)
 				: CMDInfo - in.
 **Return		: 0
 ***********************************************************************/
-static RemoteCMD_RestartSlave(int fd, MyCustMadeJson CMDInfo)
+static int RemoteCMD_RestartSlave(int fd, MyCustMadeJson CMDInfo)
 {
 
 	SameHandle('R', CMDInfo);
-	
-	return 0;
-}
-
-/***********************************************************************
-**Function Name	: RemoteCMD_SetSlaveAddrTab
-**Description	: set slave address table.
-**Parameters	: fd - in.
-				: CMDInfo - in.
-**Return		: 0
-***********************************************************************/
-static RemoteCMD_SetSlaveAddrTab(int fd, MyCustMadeJson CMDInfo)
-{
-	
-	while (INVAILD_CUST_MADE_JSON != g_RemoteData.m_Type)				//-- we just handle a remote cmd at the same time --//
-	{
-		Delay_ms(5);
-	}
-		
-	if (0 == CMDInfo.m_PData[0])
-	{
-		DecSlave(CMDInfo);
-	}
-	else if (1 == CMDInfo.m_PData[0])
-	{
-		IncSlave(CMDInfo);
-	}
 	
 	return 0;
 }
@@ -405,13 +241,6 @@ int RemoteCMD_Pro(int fd, MyCustMadeJson CMDInfo)
 		RemoteCMD_NewFWNotice(fd, CMDInfo);	
 		
 		return 0;	
-	}
-	else if (REMOTE_CMD_SET_SLAVE_ADDR_TAB == CMDInfo.m_Type)
-	{
-		L_DEBUG("SET SALVES ADDR TAB\n");
-		RemoteCMD_SetSlaveAddrTab(fd, CMDInfo);		
-		
-		return 0;
 	}
 	
 	if (3 >= CMDInfo.m_DataLen) //-- request data handle --//

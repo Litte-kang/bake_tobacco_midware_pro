@@ -172,12 +172,6 @@ static void AlertTypeEvent(int aisle, unsigned char*pData, unsigned int len)
 		L_DEBUG("slave(%.5d) alert ack from %d aisle!\n",((int)(pData[2] << 8) | pData[3]),aisle);
 			
 		g_AisleInfo[pos].m_Flag |= REC_DATA_FLAG;
-		
-		if (0 == pData[9] && 0 == pData[10] && 0 == pData[11] && 0 == pData[12]) //-- we don`t upload invaild alert --//
-		{
-			g_AisleInfo[pos].m_Flag |= PRO_DATA_OK_FLAG;
-			return;
-		}
 	}
 	else
 	{

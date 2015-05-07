@@ -439,12 +439,6 @@ function proPost(url, body, response)
 {
 	if ("/slave_addrs" === url)
 	{	
-		var jsons = [
-		{
-			type:15,
-			address:MIDWARE_ID,
-			data:[]
-		}];
 		var bodyJson;
 		var id = 0;
 		var i = 0;
@@ -453,26 +447,59 @@ function proPost(url, body, response)
 		
 		if (0 < bodyJson.addresses.length)
 		{
-			
-			jsons[0].data.push(bodyJson.action);
-			jsons[0].data.push(bodyJson.addresses.length);
-			
-			for (i = 0; i < bodyJson.addresses.length; ++i)
-			{	
-				id = bodyJson.addresses[i];	
-				jsons[0].data.push((id >> 8));
-				jsons[0].data.push((id & 0x00ff));
-			}
-			
-			jsons[0].data.push(Number(bodyJson.aisle));
+			fs.readFile('./conf/slaves_addr/aisle_00', function(err, chunk){
 		
-			console.log(jsons);
-		
-			//----------------------------------------------------------------------//
-			remoteCmd.proRemoteCmd(PORT[1], SER_IP, jsons);
-			//----------------------------------------------------------------------//
+				var sum = 0;
+				var tmp = "";
+				var slavesAddr = '';
 	
-			sendHttpResponse_TEXT(response, " ", 201);
+				tmp = chunk.toString();
+	
+				sum = tmp.length / 6;
+				
+				if (1 === bodyJson.action)	//-- add --//
+				{
+					for (i = 0; i < bodyJson.addresses.length; ++i)
+					{	
+						id = "00000" + bodyJson.addresses[i];	
+						id = id.substring((id.length-5)) + "\n";
+						
+						tmp += id;
+					}	
+					
+					slavesAddr = tmp;			
+				}
+				else if (0 === bodyJson.action) //-- inc --//
+				{
+					id = "00000" + bodyJson.addresses[0];	
+					id = id.substring((id.length-5)) + "\n";
+						
+					for (i = 0; i < sum; ++i)
+					{
+						if (id !== tmp.substring(0, 6))
+						{
+							slavesAddr += tmp.substring(0, 6);
+						}
+		
+						tmp = tmp.substring(6);
+					}			
+				}
+				
+				sendHttpResponse_TEXT(response, tmp, 200);
+				
+				fs.writeFile('./conf/slaves_addr/aisle_00', slavesAddr, function(){
+				
+					var restart = spawn('/bin/sh', ['start'], {stdio:'inherit'});
+
+						restart.once('close', function(code){
+	
+							console.log("restart ok! ");	
+					});
+				});
+				
+				
+			});
+
 		} //-- if (0 < bodyJson.addresses.length) --//
 	}
 	else if ("/mid_id" === url)

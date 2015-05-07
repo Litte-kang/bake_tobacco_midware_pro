@@ -117,6 +117,7 @@ static void SendCommonReqInfo(int aisle, int id, int IsSingle, unsigned char typ
 	unsigned int counter = 0;
 	unsigned char address[SLAVE_ADDR_LEN] = {0};
 	TIME start;
+	struct timeval tv_start,tv_end;
 		
 	//--- get slaver sum and start position on aisle ---//
 	if (1 == IsSingle)
@@ -135,7 +136,7 @@ static void SendCommonReqInfo(int aisle, int id, int IsSingle, unsigned char typ
 		slave_sum = GetSlaveSumOnAisle(aisle);
 		position = GetCurSlavePositionOnTab(aisle);	
 	}
-
+	
 	while (position < slave_sum)
 	{	
 	
@@ -150,6 +151,7 @@ static void SendCommonReqInfo(int aisle, int id, int IsSingle, unsigned char typ
 		
 		if (1 != g_IsForceEndCurCmd)	
 		{
+			
 			SendCommunicationRequest(aisle, address, type);			
 		}
 				
@@ -168,7 +170,7 @@ static void SendCommonReqInfo(int aisle, int id, int IsSingle, unsigned char typ
 			if (NULL_DATA_FLAG == GetAisleFlag(aisle))
 			{
 
-				res = IS_TIMEOUT(start, (1000));	//-- we will send notice again slave, if not receive ack in (2)s --//
+				res = IS_TIMEOUT(start, (2000));	//-- we will send notice again slave, if not receive ack in (2)s --//
 				if (0 != res)
 				{
 					printf("%s:receive %.5d req(%d) ack timeout!\n", __FUNCTION__,((int)(address[0] << 8) | address[1]), type);
@@ -280,7 +282,7 @@ static void SendConfigData(int aisle, int id, int IsSingle)
 			
 			if (NULL_DATA_FLAG == GetAisleFlag(aisle))
 			{
-				res = IS_TIMEOUT(start, (1000));	//-- we will send request again slave, if not receive ack in 5s --//
+				res = IS_TIMEOUT(start, (2000));	//-- we will send request again slave, if not receive ack in 5s --//
 				if (0 != res)
 				{
 					printf("%s:receive %.5d conf ack timeout!\n", __FUNCTION__, ((int)(address[0] << 8) | address[1]));
