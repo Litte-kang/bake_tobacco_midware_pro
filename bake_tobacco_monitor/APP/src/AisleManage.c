@@ -11,6 +11,7 @@
 
 #define INVAILD_SLAVE_ADDR		65535
 
+
 //----------------------------------------DECLARATION FUNCIONT---------------------------------//
 
 static void 	AlertTypeEvent(int aisle, unsigned char *pData, unsigned int len);

@@ -273,41 +273,37 @@ function timeoutCallback()
 
 		console.log("cmd data:" + cmdData);
 
-		try
+		if (cmdData.length)
 		{
-			if (cmdData.length)
-			{
-				var cmdJsons = JSON.parse(cmdData);
+			var cmdJsons;
 			
-				if (cmdJsons.length)
-				{								
-					for (var i = 0; i < cmdJsons.length; ++i)
-					{
-						var jsonElement = 
-						{
-							type:cmdJsons[i].command.type,
-							address:cmdJsons[i].command.address,
-							data:cmdJsons[i].command.data
-						};
-						
-						jsons.push(jsonElement);
-					}
-							
-					if (MIDWARE_ID === jsons[0].address)
-					{
-						remoteCmd.proRemoteCmd(PORT[1], SER_IP, jsons);
-					}
-					else
-					{
-						console.log("mid id error!");
-					}
+			try
+			{
+				cmdJsons = JSON.parse(cmdData);
+			}
+			catch (err)
+			{
+				console.log("json parse error");
+				cmdJsons = '';
+			}
+			
+			if (cmdJsons.length)
+			{								
+				for (var i = 0; i < cmdJsons.length; ++i)
+				{					
+					jsons.push(cmdJsons[i]);
 				}
-			}		
-		}
-		catch(err)
-		{
-			console.log(err);
-		}	
+						
+				if (MIDWARE_ID === jsons[0].address)
+				{
+					remoteCmd.proRemoteCmd(PORT[1], SER_IP, jsons);
+				}
+				else
+				{
+					console.log("mid id error!");
+				}
+			}
+		}		
 		
 		clientSocket.destroy();	
 	});

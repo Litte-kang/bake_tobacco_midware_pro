@@ -611,14 +611,6 @@ int AsyncCmd_RestartSlave(int aisle, int id, int IsSingle)
 	//--- a aisle finish task ---//	
 	g_IsCommu = g_IsCommu > 0 ? (g_IsCommu - 1) : 0;
 	
-	if (0 == g_IsCommu)
-	{	
-		if (REMOTE_CMD_FLAG == (REMOTE_CMD_FLAG & g_PCurAsyncCmd->m_Flag))
-		{
-			RemoteCMD_Init();
-		}
-	}
-	
 	while (0 != g_IsCommu) //-- all aisle exit task at the same time --//
 	{
 		Delay_ms(5);
@@ -656,6 +648,7 @@ int AsyncCmd_FWUpdate(int aisle, int id, int IsSingle)
 	}
 	
 	SendFWUpdateNotice(aisle, id, IsSingle);
+	SendCommonReqInfo(aisle, id, IsSingle, RESTART_SLAVE_DATA_TYPE);
 
 	//--- a aisle finish task ---//	
 	g_IsCommu = g_IsCommu > 0 ? (g_IsCommu - 1) : 0;
@@ -663,14 +656,19 @@ int AsyncCmd_FWUpdate(int aisle, int id, int IsSingle)
 	if (0 == g_IsCommu)
 	{				
 		LogoutClient();
+
+		if (REMOTE_CMD_FLAG == (REMOTE_CMD_FLAG & g_PCurAsyncCmd->m_Flag))
+		{
+			RemoteCMD_Init();
+		}
 	}
 
 	while (0 != g_IsCommu) //-- all aisle exit task at the same time --//
 	{
 		Delay_ms(5);
-	}
-		
-	AddAsyncCmd('R', (REMOTE_CMD_FLAG | INNER_CMD_FLAG)); //-- we restart slave --//
+	}	
+
+	ClearCurAsynCmd();	
 
 	L_DEBUG("====================================================\n");
 	L_DEBUG("              all aisle finish task                 \n");	
@@ -701,8 +699,11 @@ int AsyncCmd_Config(int aisle, int id, int IsSingle)
 	}
 	
 	//--- send configuration information ---//
-	SendConfigData(aisle, id, IsSingle);						
-
+	SendConfigData(aisle, id, IsSingle);
+	SendCommonReqInfo(aisle, id, IsSingle, ALERT_DATA_TYPE);
+	SendCommonReqInfo(aisle, id, IsSingle, STATUS_DATA_TYPE);
+	SendCommonReqInfo(aisle, id, IsSingle, CURVE_DATA_TYPE);
+							
 	//--- a aisle finish task ---//	
 	g_IsCommu = g_IsCommu > 0 ? (g_IsCommu - 1) : 0;
 	
@@ -711,21 +712,8 @@ int AsyncCmd_Config(int aisle, int id, int IsSingle)
 		LogoutClient();	
 		
 		if (REMOTE_CMD_FLAG == (REMOTE_CMD_FLAG & g_PCurAsyncCmd->m_Flag))
-		{
-			if (REMOTE_CMD_CONFIG_SLAVE_CURVE == g_RemoteData.m_Type || REMOTE_CMD_CONFIG_SLAVE_STAGE == g_RemoteData.m_Type)
-			{			
-				AddAsyncCmd('c', (REMOTE_CMD_FLAG | INNER_CMD_FLAG)); //-- we have finished setting curve of slaves and we would search curve of slaves --//
-								
-				L_DEBUG("====================================================\n");
-				L_DEBUG("              all aisle finish task                 \n");	
-				L_DEBUG("====================================================\n");	
-				
-				return 0;
-			}
-			else
-			{
-				RemoteCMD_Init();
-			}
+		{		
+			RemoteCMD_Init();	
 		}
 	}
 
@@ -846,6 +834,11 @@ int AsyncCmd_CurveDataSearch(int aisle, int id, int IsSingle)
 	L_DEBUG("====================================================\n");		
 	return 0;
 }
+
+
+
+
+
 
 
 
