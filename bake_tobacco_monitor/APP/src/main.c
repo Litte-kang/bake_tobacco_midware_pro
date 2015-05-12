@@ -192,7 +192,7 @@ static void AppInit()
 		sigaction(SIGALRM, &sa, 0);
 		sigaction(SIGALRM, &sig, 0);
 
-		alarm(60);
+		alarm(10);
 	}
 	//--- end ---//
 	

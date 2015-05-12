@@ -206,6 +206,7 @@ static int RemoteCMD_SearchStatus(int fd, MyCustMadeJson CMDInfo)
 static int RemoteCMD_RestartSlave(int fd, MyCustMadeJson CMDInfo)
 {
 
+	
 	SameHandle('R', CMDInfo);
 	
 	return 0;
@@ -220,6 +221,15 @@ static int RemoteCMD_RestartSlave(int fd, MyCustMadeJson CMDInfo)
 ***********************************************************************/
 static int 	RemoteCMD_GetSlaveData(int fd, MyCustMadeJson CMDInfo)
 {
+	if (17 == CMDInfo.m_Type)
+	{
+		AddAsyncCmd('A', INNER_CMD_FLAG);
+		AddAsyncCmd('S', INNER_CMD_FLAG);
+		AddAsyncCmd('c', INNER_CMD_FLAG);
+		
+		return 0;
+	}
+	
 	SameHandle('G', CMDInfo);
 	
 	return 0;

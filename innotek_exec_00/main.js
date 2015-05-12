@@ -195,6 +195,14 @@ function timeoutCallback()
 		
 	clearInterval(intervalObj);
 	
+	clientSocket.setTimeout(1000, function(){
+
+		console.log("connect:" + SER_IP + ":" + PORT[0] + " timeout");
+
+		clientSocket.destroy();
+
+	});
+
 	clientSocket.connect(PORT[0], SER_IP, function(){
 
 		var json = 
@@ -428,6 +436,18 @@ function proGet(url, response)
 				sendHttpResponse_TEXT(response, chunk, 200);
 			}
 		});			
+	}
+	else if ("/slave_data" == url)
+	{
+		var jsons = [{
+			type:17,
+			address:MIDWARE_ID,
+			data:[0,0]
+		}];
+		
+		remoteCmd.proRemoteCmd(PORT[1], SER_IP, jsons);
+		
+		sendHttpResponse_TEXT(response, "OK", 200);
 	}
 }
 
