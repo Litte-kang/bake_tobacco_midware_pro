@@ -624,6 +624,7 @@ static void UploadBackData(void)
 	
 			if (0 == g_IsCommu)
 			{
+				sleep(1);
 				LogoutClient();	
 			}
 		}

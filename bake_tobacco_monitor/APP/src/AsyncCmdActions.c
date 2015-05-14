@@ -523,6 +523,7 @@ int AsyncCmd_AlertSearch(int aisle, int id, int IsSingle)
 	
 	if (0 == g_IsCommu)
 	{		
+		sleep(1);
 		LogoutClient();		
 	}
 	
@@ -654,7 +655,8 @@ int AsyncCmd_FWUpdate(int aisle, int id, int IsSingle)
 	g_IsCommu = g_IsCommu > 0 ? (g_IsCommu - 1) : 0;
 	
 	if (0 == g_IsCommu)
-	{				
+	{		
+		sleep(1);		
 		LogoutClient();
 
 		if (REMOTE_CMD_FLAG == (REMOTE_CMD_FLAG & g_PCurAsyncCmd->m_Flag))
@@ -709,6 +711,7 @@ int AsyncCmd_Config(int aisle, int id, int IsSingle)
 	
 	if (0 == g_IsCommu)
 	{		
+		sleep(1);
 		LogoutClient();	
 		
 		if (REMOTE_CMD_FLAG == (REMOTE_CMD_FLAG & g_PCurAsyncCmd->m_Flag))
@@ -762,6 +765,7 @@ int AsyncCmd_Get(int aisle, int id, int IsSingle)
 	
 	if (0 == g_IsCommu)
 	{		
+		sleep(1);
 		LogoutClient();	
 		
 		if (REMOTE_CMD_FLAG == (REMOTE_CMD_FLAG & g_PCurAsyncCmd->m_Flag))
@@ -814,6 +818,7 @@ int AsyncCmd_CurveDataSearch(int aisle, int id, int IsSingle)
 	
 	if (0 == g_IsCommu)
 	{		
+		sleep(1);
 		LogoutClient();	
 		
 		if (REMOTE_CMD_FLAG == (REMOTE_CMD_FLAG & g_PCurAsyncCmd->m_Flag))

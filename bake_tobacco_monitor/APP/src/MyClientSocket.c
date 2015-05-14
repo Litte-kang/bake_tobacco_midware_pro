@@ -39,7 +39,7 @@ static char g_ClientState = CONNECTED_NO;
 
 //------------Declaration function for xxx--------------//
 
-static void 	CacthSig(int SigNum);
+static void 	CatchSig(int SigNum);
 
 //---------------------------end-----------------------//
 
@@ -49,7 +49,7 @@ static void 	CacthSig(int SigNum);
 **Parameters	: SigNum - signal type.
 **Return		: none.
 ***********************************************************************/
-static void CacthSig(int SigNum)
+static void CatchSig(int SigNum)
 {
 	switch (SigNum)
 	{
@@ -73,6 +73,8 @@ int ConnectServer(unsigned int times, CNetParameter param)
 {	
 	SOCKADDR_IN serv_addr = {0};
 	int tmp = 0;
+	struct sigaction action;
+	struct sigaction sa;
 	
 	if (0 >= times)
 	{		
@@ -109,7 +111,16 @@ int ConnectServer(unsigned int times, CNetParameter param)
 			g_ClientState = CONNECTED_YES;
 			
 			printf("connect %s:%d sucessful!\n", param.m_IPAddr, param.m_Port);
-			
+
+			sa.sa_handler = SIG_IGN;
+			action.sa_handler = CatchSig;
+
+			sigemptyset(&action.sa_mask);
+
+			action.sa_flags = 0;
+			sigaction(SIGPIPE, &sa, 0);
+			sigaction(SIGPIPE, &action, 0);
+
 			return 0;
 		}
 		
@@ -117,6 +128,7 @@ int ConnectServer(unsigned int times, CNetParameter param)
 	}while(--times);
 	
 	printf("connect %s:%d failed!\n", param.m_IPAddr, param.m_Port);
+	close(g_SocketFD);
 	
 	return -1;
 }
@@ -223,7 +235,7 @@ void LogoutClient()
 		close(g_SocketFD);
 		g_ClientState = CONNECTED_NO;
 		
-		printf("logout client sucessful!\n");	
+		printf("logout client(%d) sucessful!\n",g_SocketFD);	
 	}	
 }
 
