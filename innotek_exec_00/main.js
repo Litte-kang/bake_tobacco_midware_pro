@@ -92,7 +92,15 @@ Default value		: /
 The scope of value	: /
 First used			: /
 */
-var intervalObj;
+var intervalObj0;
+
+/*
+Description			: for timer.
+Default value		: /
+The scope of value	: /
+First used			: /
+*/
+var intervalObj1;
 
 /*
 Description			: we upload middleware base information when counter00 is 360.
@@ -106,6 +114,38 @@ var counter00 = 0;
 * start Bake_Tobacco_Monitor
 ********************************************/
 cProcess.Run('Bake_Tobacco_Monitor', 1, -1, 0);
+
+
+/*******************************************
+* if node main can not connect,we restart software
+********************************************/
+intervalObj1 = setInterval(timeoutCallback1, (45000));
+
+function timeoutCallback1()
+{
+	var clientSocket = new net.Socket(); 
+
+	clearInterval(intervalObj1);
+
+	clientSocket.connect(4000, '127.0.0.1', function(socket){
+
+
+	});
+
+	clientSocket.on('error', function(err){
+
+		clientSocket.destroy();
+	});
+
+	clientSocket.on('close', function(){
+
+		clientSocket.destroy();
+
+		clientSocket.removeAllListeners();
+
+		intervalObj1 = setInterval(timeoutCallback1, (45000));
+	})
+}
 
 /*******************************************
 * read version
@@ -171,7 +211,7 @@ fs.open("./conf/mid_id", "r", function(err, fd){
 			
 			///*
 			//--- send mid id to remote server. ---//
-			intervalObj = setInterval(timeoutCallback, (1000));
+			intervalObj0 = setInterval(timeoutCallback0, (1000));
 			//*/					
 		}
 		else
@@ -186,14 +226,14 @@ fs.open("./conf/mid_id", "r", function(err, fd){
 	}
 }); //--- end of fs.open("./conf/mid_id/mid_id", function(err, fd) ---//
 
-function timeoutCallback()
+function timeoutCallback0()
 {
 	var clientSocket = new net.Socket();
 	var cmdData = '';
 	
 	//counter00++;
 		
-	clearInterval(intervalObj);
+	clearInterval(intervalObj0);
 	
 	clientSocket.setTimeout(1000, function(){
 
@@ -329,7 +369,7 @@ function timeoutCallback()
 		
 		clientSocket.removeAllListeners();
 		
-		intervalObj = setInterval(timeoutCallback, (1000));
+		intervalObj0 = setInterval(timeoutCallback0, (1000));
 		
 	});	
 }
@@ -543,8 +583,18 @@ function sendHttpResponse_HTML(response, html)
 
 		response.setHeader('Content-Type', 'text/html');
 		response.setHeader("Cache-Control", "no-cache");
-		response.writeHeader(200);
-		response.write(chunk);
+				
+		if (!err && chunk.length)
+		{
+			response.writeHeader(200);
+			response.write(chunk.toString());
+		}
+		else
+		{
+			response.writeHeader(404);
+			response.write("404 not found server!");
+		}
+		
 		response.end();
 	});
 }
@@ -554,7 +604,7 @@ function sendHttpResponse_TEXT(response, text, status)
 	response.setHeader('Content-Type', 'application/string');
 	response.setHeader("Cache-Control", "no-cache");
 	response.writeHeader(status);
-	response.write(text);
+	response.write(text.toString());
 	response.end();	
 }
 

@@ -42,7 +42,7 @@ typedef struct _ClientInfo
 extern int 		MyServerSocketInit(SNetParameter param);
 extern int 		Listen();
 extern void* 	RecThrds(void *pArg);
-extern int 		RecDataFromClient(int fd, unsigned char *pBuff, unsigned int len);
+extern int 		RecDataFromClient(int fd, unsigned char *pBuff, unsigned int len, int timeout);
 extern int 		SendDataToClient(int fd, unsigned char *pBuff, unsigned int len); 
 
 //---------------------------end-------------------------------//

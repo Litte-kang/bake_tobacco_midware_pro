@@ -191,13 +191,15 @@ int Listen()
 **Parameters	: indx - in.
 				: pBuff - save data buffer.
 				: len - the length expired.
+				: timeout - in.
 **Return		: 0 - ok, other value - failed.
 ***********************************************************************/
-int RecDataFromClient(int fd, unsigned char *pBuff, unsigned int len)
+int RecDataFromClient(int fd, unsigned char *pBuff, unsigned int len, int timeout)
 {
 	fd_set inset;
 	int max_fd = 0;
 	int res = 0;
+	struct timeval tv;
 	
 	if (NULL == pBuff)
 	{
@@ -216,7 +218,10 @@ int RecDataFromClient(int fd, unsigned char *pBuff, unsigned int len)
 		
 	max_fd = fd + 1;
 
-	res = select(max_fd, &inset, NULL, NULL, NULL);
+	tv.tv_sec = timeout;
+	tv.tv_usec = 0;
+
+	res = select(max_fd, &inset, NULL, NULL, (timeout ? &tv : NULL));
 
 	if (!FD_ISSET(fd, &inset))
 	{

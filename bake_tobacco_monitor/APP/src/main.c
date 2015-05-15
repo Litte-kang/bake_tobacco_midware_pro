@@ -91,6 +91,14 @@ First used			: AppInit()
 */
 unsigned char g_MyLocalID[11] = {0};
 
+/*
+Description			: middleware machine id
+Default value		: 0
+The scope of value	: /
+First used			: AppInit()
+*/
+char g_TickCounter = 2;
+
 
 //---------------------------end-------------------------------//
 
@@ -383,7 +391,7 @@ static void RecUartData(int fd)
 void* RecThrds(void *pArg)
 {
 	ClientInfo info;
-	char str[500] = {0};
+	char str[300] = {0};
 	int res = 0;
 	char data = 0;
 	MyCustMadeJson json = {0};
@@ -398,8 +406,8 @@ void* RecThrds(void *pArg)
 #if 1
 		L_DEBUG("receive data from Client!\n");
 		
-		memset(str, 0, 500);
-		res = RecDataFromClient(info.m_fd, str, 500);
+		memset(str, 0, 300);
+		res = RecDataFromClient(info.m_fd, str, 300, 1);
 		if (0 == res)
 		{	
 			json = CustMadeJsonParse(str);
@@ -412,8 +420,9 @@ void* RecThrds(void *pArg)
 			break;
 					
 		}
-		else if (SER_DISCONNECTED == res)
+		else
 		{
+			g_TickCounter = 2;
 			break;
 		}
 #endif			
@@ -573,7 +582,14 @@ static void TimerCallback(int SigNum)
 		//---------------------------------------------------------------//				
 	} //--- end of if (SIGALRM == SigNum) ---//
 	
-	alarm(62);	
+	g_TickCounter--;
+	if (0 == g_TickCounter)
+	{
+		printf("restart\n");
+		execl("/bin/sh", "/bin/sh", "start", NULL);
+	}
+
+	alarm(55);	
 }
 
 /***********************************************************************
