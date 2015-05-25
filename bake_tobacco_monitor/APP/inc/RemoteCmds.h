@@ -9,7 +9,7 @@
 #define REMOTE_CMD_SEARCH_SLAVE_STATUS		8
 #define REMOTE_CMD_CONFIG_SLAVE_CURVE		12
 #define REMOTE_CMD_CONFIG_SLAVE_TOBA_SIZE	13
-#define REMOTE_CMD_CONFIG_SLAVE_TIME		14
+#define REMOTE_CMD_CONFIG_MID_TIME			14
 #define REMOTE_CMD_SET_SLAVE_ADDR_TAB		15
 #define REMOTE_CMD_CONFIG_SLAVE_STAGE		16
 
@@ -31,6 +31,14 @@ The scope of value	: /.
 First used			: /.
 */
 extern MyCustMadeJson g_RemoteData;
+
+/*
+Description			: if we set 1 sync server time, otherwise 0.
+Default value		: /.
+The scope of value	: /.
+First used			: /.
+*/
+extern char g_IsSyncServerTime;
 
 //---------------------------end---------------------------//
 

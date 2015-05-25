@@ -4,8 +4,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <time.h>
 #include "MyClientSocket.h"
 #include "MyCustMadeJson.h"
+#include "RemoteCmds.h"
 #include "AsyncCmds.h"
 #include "xProtocol.h"
 
@@ -426,9 +428,13 @@ static void CurveTypeEvent(int aisle, unsigned char *pData, unsigned int len)
 static int UploadDataToServer(const char *pFileName, unsigned char *pData, unsigned int len)
 {
 	unsigned int tmp = 0;
+	char is_set_slave_time	= 0;
 	unsigned char upload_buff[UPLOAD_SER_SIZE] = {0};
 	unsigned int slave_addr = 0;
-	
+	MyCustMadeJson json = {0};
+	time_t now_time 		= {0};
+	struct tm *p_now_time 	= NULL;
+
 	tmp = (unsigned int)pData[4];
 	
 	slave_addr = (unsigned int)(pData[2] << 8);
@@ -438,6 +444,12 @@ static int UploadDataToServer(const char *pFileName, unsigned char *pData, unsig
 	{
 		case ALERT_DATA_TYPE:	//-- alert data --//
 			{
+				if (pData[11] & 0x80)
+				{
+					is_set_slave_time = 1;
+					pData[11] &= 0x7f;		//-- set 0 eight bit --// 
+				}
+
 				sprintf(upload_buff, "{\"midAddress\":\"%s\",\"type\":%d,\"address\":\"%.5d\",\"data\":[%d,%d,%d,%d,%d,%d,%d,%d]}", 
 				g_MyLocalID, tmp, slave_addr, pData[9], pData[10], pData[11], pData[12], pData[16], pData[15], pData[14], pData[13]);
 			}
@@ -494,6 +506,30 @@ static int UploadDataToServer(const char *pFileName, unsigned char *pData, unsig
 	memcpy(&upload_buff[tmp], "</br>", 5);
 	SaveTmpData(upload_buff);
 	
+	if (is_set_slave_time && g_IsSyncServerTime)
+	{
+		memset(upload_buff, 0, UPLOAD_SER_SIZE);
+
+		json.m_Type = CONF_TIME_DATA_TYPE;
+		json.m_PData = upload_buff;
+		json.m_DataLen = 7;
+		json.m_Addr[0] = 0xff; //-- set all slaves time --//
+		json.m_Addr[1] = 0xff;
+
+		time(&now_time);
+		p_now_time = localtime(&now_time);
+	
+		upload_buff[0] = 0xff;
+		upload_buff[1] = 0xff;
+		upload_buff[2] = (unsigned char)(p_now_time->tm_year % 100);
+		upload_buff[3] = (unsigned char)(p_now_time->tm_mon + 1);
+		upload_buff[4] = (unsigned char)p_now_time->tm_mday;
+		upload_buff[5] = (unsigned char)p_now_time->tm_hour;
+		upload_buff[6] = (unsigned char)p_now_time->tm_min;
+		
+		RemoteCMD_Pro(0, json);
+	}
+
 	return tmp;
 }
 

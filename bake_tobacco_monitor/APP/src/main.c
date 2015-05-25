@@ -586,7 +586,7 @@ static void TimerCallback(int SigNum)
 	if (0 == g_TickCounter)
 	{
 		printf("restart\n");
-		execl("/bin/sh", "/bin/sh", "start", NULL);
+		system("reboot");
 	}
 
 	alarm(55);	
@@ -640,8 +640,8 @@ static void UploadBackData(void)
 	
 			if (0 == g_IsCommu)
 			{
-				sleep(1);
 				LogoutClient();	
+				sleep(1);
 			}
 		}
 	}	

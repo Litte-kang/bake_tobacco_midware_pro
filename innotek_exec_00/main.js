@@ -235,7 +235,7 @@ function timeoutCallback0()
 		
 	clearInterval(intervalObj0);
 	
-	clientSocket.setTimeout(1000, function(){
+	clientSocket.setTimeout(2000, function(){
 
 		console.log("connect:" + SER_IP + ":" + PORT[0] + " timeout");
 
@@ -249,14 +249,14 @@ function timeoutCallback0()
 		{
 			type:3,
 			address:MIDWARE_ID,
-			data:[0,0,0,0,0,0,0,0,0]
+			data:[0,0,0,0,0,0,0,0,0,0]
 		};
 		var info;
 		
-		if (0 == counter00)
+		if (3600 > counter00)
 		{		
-			counter00 = 0;
-				
+			counter00 = (++counter00) % 3600;
+
 			info = osInfo.getOSInfo();
 		
 			json.data[0] = info.totallMem;
@@ -266,6 +266,11 @@ function timeoutCallback0()
 			json.data[4] = info.osPlatform;
 			json.data[5] = info.cpuModel;
 			json.data[6] = info.uptime;
+
+			if (1 === counter00)	//-- get server time per 1 hour--//
+			{
+				json.data[9] = 1;
+			}
 				
 			fs.readFile('/tmp/startup', function(err, chunk){
 
@@ -341,7 +346,7 @@ function timeoutCallback0()
 				{					
 					jsons.push(cmdJsons[i]);
 				}
-						
+					
 				if (MIDWARE_ID === jsons[0].address)
 				{
 					remoteCmd.proRemoteCmd(PORT[1], SER_IP, jsons);
@@ -477,7 +482,7 @@ function proGet(url, response)
 			}
 		});			
 	}
-	else if ("/slave_data" == url)
+	else if ("/slave_data" === url)
 	{
 		var jsons = [{
 			type:17,

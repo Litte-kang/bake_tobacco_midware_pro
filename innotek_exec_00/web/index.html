@@ -228,7 +228,7 @@ function buttonEvt(btn)
 	else if ("getButton" == btn.id)
 	{
 		jsonStr = "{" +'"aisle":' + '"' + document.getElementById("aisle").value + "}";
-		sendHttpReq("GET", "slave_data", jsonStr);		
+		sendHttpReq("GET", "slave_data", null);		
 	}
 }
 

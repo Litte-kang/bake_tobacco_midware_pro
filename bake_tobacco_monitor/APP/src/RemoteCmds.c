@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <time.h>
 #include "RemoteCmds.h"
 #include "AisleManage.h"
 #include "MyPublicFunction.h"
@@ -35,6 +36,14 @@ First used			: /.
 */
 MyCustMadeJson g_RemoteData = {0};
 
+/*
+Description			: if we set 1 sync server time, otherwise 0.
+Default value		: /.
+The scope of value	: /.
+First used			: /.
+*/
+char g_IsSyncServerTime = 0;
+
 //---------------------------end--------------------------//
 
 
@@ -48,6 +57,7 @@ static int 		RemoteCMD_SearchStatus(int fd, MyCustMadeJson CMDInfo);
 static int 		RemoteCMD_RestartSlave(int fd, MyCustMadeJson CMDInfo);
 static int 		RemoteCMD_SetSlaveAddrTab(int fd, MyCustMadeJson CMDInfo);
 static int 		RemoteCMD_GetSlaveData(int fd, MyCustMadeJson CMDInfo);
+static int 		RemoteCMD_SyncServerTime(int fd, MyCustMadeJson CMDInfo);
 
 //---------------------------end---------------------------//
 
@@ -59,13 +69,54 @@ static int 		RemoteCMD_GetSlaveData(int fd, MyCustMadeJson CMDInfo);
 ***********************************************************************/
 int RemoteCMD_Init()
 {
-
 	g_RemoteData.m_Type = INVAILD_CUST_MADE_JSON;	
 	memset(g_RemoteData.m_Addr, 0xff, 10);
 	g_RemoteData.m_PData = g_Data;
 	memset(g_RemoteData.m_PData, 0, 100);	
 	g_RemoteData.m_DataLen = 0;
+
+	L_DEBUG("%s:remote cmd init ok!\n",__FUNCTION__);
 	
+	return 0;
+}
+
+/***********************************************************************
+**Function Name	: RemoteCMD_SyncServerTime
+**Description	: syn server time.
+**Parameter		: FWType - in.
+**Return		: none.
+***********************************************************************/
+static int 	RemoteCMD_SyncServerTime(int fd, MyCustMadeJson CMDInfo)
+{
+	struct tm set_tm;
+	struct timeval tv;
+	time_t set_time;
+	int year = 0;
+
+	year = (int)CMDInfo.m_PData[5];
+	year <<= 8;
+	year |= (int)CMDInfo.m_PData[6];
+	
+	set_tm.tm_year = year - 1900;
+	set_tm.tm_mon = (int)CMDInfo.m_PData[3] - 1;
+	set_tm.tm_mday = (int)CMDInfo.m_PData[4];
+	set_tm.tm_hour = (int)CMDInfo.m_PData[0];
+	set_tm.tm_min = (int)CMDInfo.m_PData[1];
+	set_tm.tm_sec = (int)CMDInfo.m_PData[2];
+	
+	set_time = mktime(&set_tm);
+	
+	tv.tv_sec = set_time;
+	tv.tv_usec = 0;
+	
+	if (settimeofday(&tv, (struct timezone *)0))
+	{
+		printf("%s:sync server time failed!\n", __FUNCTION__);
+		return 0;
+	}
+
+	g_IsSyncServerTime = 1;
+
 	return 0;
 }
 
@@ -124,9 +175,23 @@ static int GetFWInfo(int FWType)
 ***********************************************************************/
 static void SameHandle(unsigned char HandleType, MyCustMadeJson CMDInfo)
 {	
+	TIME start;
+
+	if (REMOTE_CMD_NEW_FW_NOTICE == g_RemoteData.m_Type)
+	{
+		return;	//-- we can`t end fw update --//
+	}
+
+	GET_SYS_CURRENT_TIME(start);
 
 	while (INVAILD_CUST_MADE_JSON != g_RemoteData.m_Type)				//-- we just handle a remote cmd at the same time --//
-	{
+	{ 
+		if (IS_TIMEOUT(start, (12000)) && 0xff != CMDInfo.m_Addr[0] && 0xff != CMDInfo.m_Addr[1])
+		{
+			RemoteCMD_Init(); //-- the target slave is only one --//
+			break;
+		}
+
 		Delay_ms(5);
 	}
 	
@@ -244,13 +309,19 @@ static int 	RemoteCMD_GetSlaveData(int fd, MyCustMadeJson CMDInfo)
 ***********************************************************************/
 int RemoteCMD_Pro(int fd, MyCustMadeJson CMDInfo)
 {
-	//--
 	if (REMOTE_CMD_NEW_FW_NOTICE == CMDInfo.m_Type)
 	{
 		L_DEBUG("UPDATE CMD\n");
 		RemoteCMD_NewFWNotice(fd, CMDInfo);	
 		
 		return 0;	
+	}
+	else if (REMOTE_CMD_CONFIG_MID_TIME == CMDInfo.m_Type)
+	{
+		L_DEBUG("SYNC server time ok\n");
+		RemoteCMD_SyncServerTime(fd, CMDInfo);
+
+		return 0;
 	}
 	
 	if (3 >= CMDInfo.m_DataLen) //-- request data handle --//

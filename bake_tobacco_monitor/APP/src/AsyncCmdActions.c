@@ -523,8 +523,8 @@ int AsyncCmd_AlertSearch(int aisle, int id, int IsSingle)
 	
 	if (0 == g_IsCommu)
 	{		
-		sleep(1);
 		LogoutClient();		
+		sleep(1);
 	}
 	
 	while (0 != g_IsCommu) //-- all aisle exit task at the same time --//
@@ -572,6 +572,7 @@ int AsyncCmd_StatusSearch(int aisle, int id, int IsSingle)
 	if (0 == g_IsCommu)
 	{		
 		LogoutClient();
+		sleep(1);
 				
 		if ((REMOTE_CMD_FLAG & g_PCurAsyncCmd->m_Flag))
 		{
@@ -655,9 +656,9 @@ int AsyncCmd_FWUpdate(int aisle, int id, int IsSingle)
 	g_IsCommu = g_IsCommu > 0 ? (g_IsCommu - 1) : 0;
 	
 	if (0 == g_IsCommu)
-	{		
-		sleep(1);		
+	{				
 		LogoutClient();
+		sleep(1);
 
 		if (REMOTE_CMD_FLAG == (REMOTE_CMD_FLAG & g_PCurAsyncCmd->m_Flag))
 		{
@@ -702,18 +703,24 @@ int AsyncCmd_Config(int aisle, int id, int IsSingle)
 	
 	//--- send configuration information ---//
 	SendConfigData(aisle, id, IsSingle);
-	SendCommonReqInfo(aisle, id, IsSingle, ALERT_DATA_TYPE);
-	SendCommonReqInfo(aisle, id, IsSingle, STATUS_DATA_TYPE);
-	SendCommonReqInfo(aisle, id, IsSingle, CURVE_DATA_TYPE);
+	
+	if (CONF_TIME_DATA_TYPE != g_RemoteData.m_Type)
+	{
+		SendCommonReqInfo(aisle, id, IsSingle, ALERT_DATA_TYPE);
+		SendCommonReqInfo(aisle, id, IsSingle, STATUS_DATA_TYPE);
+		SendCommonReqInfo(aisle, id, IsSingle, CURVE_DATA_TYPE);
+	}
 							
 	//--- a aisle finish task ---//	
 	g_IsCommu = g_IsCommu > 0 ? (g_IsCommu - 1) : 0;
 	
 	if (0 == g_IsCommu)
 	{		
-		sleep(1);
 		LogoutClient();	
+		sleep(1);
 		
+		L_DEBUG("%s:---config ok\n", __FUNCTION__);
+
 		if (REMOTE_CMD_FLAG == (REMOTE_CMD_FLAG & g_PCurAsyncCmd->m_Flag))
 		{		
 			RemoteCMD_Init();	
@@ -765,8 +772,8 @@ int AsyncCmd_Get(int aisle, int id, int IsSingle)
 	
 	if (0 == g_IsCommu)
 	{		
-		sleep(1);
 		LogoutClient();	
+		sleep(1);
 		
 		if (REMOTE_CMD_FLAG == (REMOTE_CMD_FLAG & g_PCurAsyncCmd->m_Flag))
 		{	
@@ -818,8 +825,8 @@ int AsyncCmd_CurveDataSearch(int aisle, int id, int IsSingle)
 	
 	if (0 == g_IsCommu)
 	{		
-		sleep(1);
 		LogoutClient();	
+		sleep(1);
 		
 		if (REMOTE_CMD_FLAG == (REMOTE_CMD_FLAG & g_PCurAsyncCmd->m_Flag))
 		{	
