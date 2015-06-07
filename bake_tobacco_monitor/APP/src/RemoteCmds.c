@@ -176,17 +176,23 @@ static int GetFWInfo(int FWType)
 static void SameHandle(unsigned char HandleType, MyCustMadeJson CMDInfo)
 {	
 	TIME start;
+	int cmd_level = REMOTE_CMD_FLAG;
 
 	if (REMOTE_CMD_NEW_FW_NOTICE == g_RemoteData.m_Type)
 	{
 		return;	//-- we can`t end fw update --//
 	}
 
+	if (REMOTE_CMD_CONFIG_MID_TIME == CMDInfo.m_Type && REMOTE_CMD_CONFIG_MID_TIME == g_RemoteData.m_Type)
+	{
+		return; //-- we can`t add a cmd added and the cmd is running --//
+	}
+
 	GET_SYS_CURRENT_TIME(start);
 
 	while (INVAILD_CUST_MADE_JSON != g_RemoteData.m_Type)				//-- we just handle a remote cmd at the same time --//
 	{ 
-		if (IS_TIMEOUT(start, (12000)) && 0xff != CMDInfo.m_Addr[0] && 0xff != CMDInfo.m_Addr[1])
+		if (IS_TIMEOUT(start, (12000)))
 		{
 			RemoteCMD_Init(); //-- the target slave is only one --//
 			break;
@@ -194,7 +200,12 @@ static void SameHandle(unsigned char HandleType, MyCustMadeJson CMDInfo)
 
 		Delay_ms(5);
 	}
-	
+
+	if (REMOTE_CMD_CONFIG_MID_TIME == CMDInfo.m_Type)
+	{
+		cmd_level = INNER_CMD_FLAG;
+	}
+
 	g_RemoteData.m_Type = CMDInfo.m_Type;								//-- cmd type --//
 	
 	memcpy(g_RemoteData.m_Addr, CMDInfo.m_PData, 2);					//-- slave id --//
@@ -203,7 +214,7 @@ static void SameHandle(unsigned char HandleType, MyCustMadeJson CMDInfo)
 
 	g_RemoteData.m_DataLen = CMDInfo.m_DataLen;							//-- data len --//
 		
-	AddAsyncCmd(HandleType, REMOTE_CMD_FLAG);
+	AddAsyncCmd(HandleType, cmd_level);
 }
 
 /***********************************************************************
@@ -316,9 +327,10 @@ int RemoteCMD_Pro(int fd, MyCustMadeJson CMDInfo)
 		
 		return 0;	
 	}
-	else if (REMOTE_CMD_CONFIG_MID_TIME == CMDInfo.m_Type)
+	else if (REMOTE_CMD_CONFIG_MID_TIME == CMDInfo.m_Type && 0 < fd)
 	{
 		L_DEBUG("SYNC server time ok\n");
+		CMDInfo.m_Type = CONF_TIME_DATA_TYPE;
 		RemoteCMD_SyncServerTime(fd, CMDInfo);
 
 		return 0;

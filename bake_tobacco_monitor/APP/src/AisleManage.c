@@ -489,8 +489,6 @@ static int UploadDataToServer(const char *pFileName, unsigned char *pData, unsig
 	
 	tmp = strlen(upload_buff);
 	
-	L_DEBUG("json(%d):%s\n", tmp, upload_buff);
-	
 	//--- send to server ---//
 	tmp = SendDataToServer(upload_buff, tmp);
 	if (0 != tmp)
@@ -505,9 +503,10 @@ static int UploadDataToServer(const char *pFileName, unsigned char *pData, unsig
 	tmp = strlen(upload_buff);
 	memcpy(&upload_buff[tmp], "</br>", 5);
 	SaveTmpData(upload_buff);
-	
+
 	if (is_set_slave_time && g_IsSyncServerTime)
 	{
+		L_DEBUG("------------------config slave_time-------------------\n");
 		memset(upload_buff, 0, UPLOAD_SER_SIZE);
 
 		json.m_Type = CONF_TIME_DATA_TYPE;
@@ -573,13 +572,9 @@ void ProcAisleData(int aisle, unsigned char *pData, unsigned int len)
         p = MyStrStr(p, len, flag, 2, &len);
          
 		res = CheckCommuData(p, &type);
-		
-		L_DEBUG("vaild data len = %d\n", res);
 
         if (0 <= res)
-        {
-            L_DEBUG("communication type = %d \n",type);
-            
+        {            
 			switch (type)
 			{
 				case ALERT_DATA_TYPE:

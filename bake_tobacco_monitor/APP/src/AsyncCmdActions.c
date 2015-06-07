@@ -718,8 +718,6 @@ int AsyncCmd_Config(int aisle, int id, int IsSingle)
 	{		
 		LogoutClient();	
 		sleep(1);
-		
-		L_DEBUG("%s:---config ok\n", __FUNCTION__);
 
 		if (REMOTE_CMD_FLAG == (REMOTE_CMD_FLAG & g_PCurAsyncCmd->m_Flag))
 		{		
